@@ -1,16 +1,33 @@
-# tetrafy
+# Tetras
 
-A new Flutter project.
+A modern and customizable Tetris-like game built with Flutter.
 
-## Getting Started
+## Features
 
-This project is a starting point for a Flutter application.
+*   **Classic Tetris Gameplay:** Enjoy the timeless gameplay of Tetris.
+*   **Customizable Themes:** Personalize your gaming experience with different color themes.
+*   **Customizable Block Skins:** Change the appearance of the blocks.
+*   **Multiple Game Modes:** Play different game modes like Classic, Timed, and Survival.
+*   **Daily Challenges:** Test your skills with new challenges every day.
+*   **Player Profiles:** Track your stats and achievements.
+*   **Sound Effects:** Immerse yourself in the game with sound effects.
 
-A few resources to get you started if this is your first Flutter project:
+## Screenshots
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+| Game Board | Theme Selection |
+| :---: | :---: |
+| ![Game Board](screenshots/game_board.png) | ![Theme Selection](screenshots/theme_selection.png) |
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Installation
+
+1.  Clone the repository:
+    ```bash
+    git clone https://github.com/your-username/tetras.git
+    ```
+2.  Install dependencies:
+    ```bash
+    flutter pub get
+    ```
+3.  Run the game:
+    ```bash
+    flutter run

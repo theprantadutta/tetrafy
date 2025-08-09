@@ -1,0 +1,1 @@
+enum GameMode { classic, sprint, marathon, zen }

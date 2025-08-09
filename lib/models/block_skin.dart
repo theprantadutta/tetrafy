@@ -1,0 +1,1 @@
+enum BlockSkin { flat, glossy, pixelArt }

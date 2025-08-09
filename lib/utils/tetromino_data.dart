@@ -1,5 +1,16 @@
+import 'package:flutter/material.dart';
 import '../models/piece.dart';
 import '../models/point.dart';
+
+const Map<Tetromino, Color> tetrominoColors = {
+  Tetromino.I: Colors.cyan,
+  Tetromino.O: Colors.yellow,
+  Tetromino.T: Colors.purple,
+  Tetromino.S: Colors.green,
+  Tetromino.Z: Colors.red,
+  Tetromino.J: Colors.blue,
+  Tetromino.L: Colors.orange,
+};
 
 const Map<Tetromino, List<List<Point<int>>>> tetrominoData = {
   Tetromino.I: [

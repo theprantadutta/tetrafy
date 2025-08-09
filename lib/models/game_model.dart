@@ -3,8 +3,10 @@ import 'piece.dart';
 import 'point.dart';
 import '../utils/bag_generator.dart';
 import '../utils/tetromino_data.dart';
+import 'game_mode.dart';
 
 class GameModel {
+  final GameMode gameMode;
   static const int gridWidth = 10;
   static const int gridHeight = 20;
 
@@ -23,7 +25,7 @@ class GameModel {
   bool isPlaying = true;
   bool isGameOver = false;
 
-  GameModel() {
+  GameModel({this.gameMode = GameMode.classic}) {
     nextPiece = Piece(type: _bagGenerator.next, position: Point(0, 0));
     _spawnNewPiece();
   }
@@ -83,11 +85,33 @@ class GameModel {
     // TODO: Implement rotation
   }
 
+  void hardDrop() {
+    while (isValidPosition(Point(currentPiece.position.x, currentPiece.position.y + 1))) {
+      currentPiece.position = Point(currentPiece.position.x, currentPiece.position.y + 1);
+    }
+    _placePiece();
+  }
+
   void _move(int dx, int dy) {
     final newPosition = Point(currentPiece.position.x + dx, currentPiece.position.y + dy);
     if (isValidPosition(newPosition)) {
       currentPiece.position = newPosition;
+    } else {
+      if (dy > 0) {
+        _placePiece();
+      }
     }
+  }
+
+  void _placePiece() {
+    final points = getPiecePoints(currentPiece.type, currentPiece.rotation, currentPiece.position);
+    for (final point in points) {
+      if (point.y >= 0) {
+        grid[point.y][point.x] = currentPiece.color;
+      }
+    }
+    _clearLines();
+    _spawnNewPiece();
   }
 
   bool isValidPosition(Point<int> position) {
@@ -120,9 +144,20 @@ class GameModel {
   }
 
   void _updateScore(int lines) {
-    score += lines * 100;
-    if (linesCleared >= level * 10) {
-      level++;
+    if (gameMode == GameMode.classic) {
+      score += lines * 100;
+      if (linesCleared >= level * 10) {
+        level++;
+      }
+    } else if (gameMode == GameMode.sprint) {
+      if (linesCleared >= 40) {
+        isGameOver = true;
+        isPlaying = false;
+      }
+    } else if (gameMode == GameMode.marathon) {
+      // No game over condition, just keep playing
+    } else if (gameMode == GameMode.zen) {
+      // No timer, no score, no levels
     }
   }
 }

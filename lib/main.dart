@@ -2,15 +2,65 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'models/game_model.dart';
+import 'models/game_mode.dart';
 import 'widgets/game_board.dart';
 import 'widgets/piece_preview.dart';
 import 'services/preferences_service.dart';
 import 'theme/app_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'services/sound_service.dart';
+import 'screens/mode_selection_screen.dart';
+import 'models/block_skin.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'models/player_profile.dart';
+import 'package:provider/provider.dart';
+import 'screens/stats_screen.dart';
+import 'services/player_profile_service.dart';
 
-void main() {
-  runApp(const MyApp());
+final ValueNotifier<ThemeData> themeNotifier = ValueNotifier(AppTheme.lightTheme);
+final ValueNotifier<BlockSkin> blockSkinNotifier = ValueNotifier(BlockSkin.flat);
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
+  final theme = prefs.getString('theme') ?? 'pastel';
+  final skin = prefs.getString('skin') ?? 'flat';
+  themeNotifier.value = _getThemeData(theme);
+  blockSkinNotifier.value = _getBlockSkin(skin);
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => PreferencesService(),
+      child: const MyApp(),
+    ),
+  );
+}
+
+ThemeData _getThemeData(String theme) {
+  switch (theme) {
+    case 'pastel':
+      return AppTheme.lightTheme;
+    case 'retroNeon':
+      return AppTheme.darkTheme;
+    case 'monochrome':
+      return AppTheme.monochromeTheme;
+    case 'cyberpunk':
+      return AppTheme.cyberpunkTheme;
+    default:
+      return AppTheme.lightTheme;
+  }
+}
+
+BlockSkin _getBlockSkin(String skin) {
+  switch (skin) {
+    case 'flat':
+      return BlockSkin.flat;
+    case 'glossy':
+      return BlockSkin.glossy;
+    case 'pixelArt':
+      return BlockSkin.pixelArt;
+    default:
+      return BlockSkin.flat;
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -18,53 +68,102 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Tetras',
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      home: const GameScreen(),
+    return ValueListenableBuilder<ThemeData>(
+      valueListenable: themeNotifier,
+      builder: (context, theme, child) {
+        return MaterialApp(
+          title: 'Tetras',
+          theme: theme,
+          home: const ModeSelectionScreen(),
+          routes: {
+            '/stats': (context) => const StatsScreen(),
+          },
+        );
+      },
     );
   }
 }
 
 class GameScreen extends StatefulWidget {
-  const GameScreen({super.key});
+  final GameMode gameMode;
+
+  const GameScreen({super.key, this.gameMode = GameMode.classic});
 
   @override
   State<GameScreen> createState() => _GameScreenState();
 }
 
-class _GameScreenState extends State<GameScreen> {
-  final GameModel _gameModel = GameModel();
+class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
+  late final GameModel _gameModel;
   final PreferencesService _preferencesService = PreferencesService();
   final SoundService _soundService = SoundService();
+  final PlayerProfileService _profileService = PlayerProfileService();
+  late PlayerProfile _profile;
   int _highScore = 0;
+  late AnimationController _controller;
+  late Animation<double> _animation;
 
   @override
   void initState() {
     super.initState();
+    _gameModel = GameModel(gameMode: widget.gameMode);
+    _loadProfile();
     _loadHighScore();
-    Timer.periodic(const Duration(milliseconds: 500), (timer) {
-      if (_gameModel.isPlaying) {
-        setState(() {
-          _gameModel.moveDown();
-        });
-      }
-      if (_gameModel.isGameOver) {
-        _updateHighScore();
-      }
-    });
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 100),
+      vsync: this,
+    );
+    _animation = Tween<double>(begin: 0, end: 10).animate(_controller)
+      ..addStatusListener((status) {
+        if (status == AnimationStatus.completed) {
+          _controller.reverse();
+        }
+      });
+    if (widget.gameMode != GameMode.zen) {
+      Timer.periodic(const Duration(milliseconds: 500), (timer) {
+        if (_gameModel.isPlaying) {
+          setState(() {
+            _gameModel.moveDown();
+          });
+        }
+        if (_gameModel.isGameOver) {
+          _updateHighScore();
+          _profileService.addXp(_profile, _gameModel.score);
+          _preferencesService.incrementLinesCleared(_gameModel.linesCleared);
+          _preferencesService.updateTotalTimePlayed(const Duration(milliseconds: 500));
+        }
+      });
+    }
   }
 
-  void _loadHighScore() async {
-    _highScore = await _preferencesService.getHighScore();
+  void _loadProfile() async {
+    _profile = await _profileService.getProfile();
+    setState(() {});
+  }
+
+  void _loadHighScore() {
+    switch (widget.gameMode) {
+      case GameMode.classic:
+        _highScore = _preferencesService.highScoreClassic;
+        break;
+      case GameMode.sprint:
+        _highScore = _preferencesService.highScoreSprint;
+        break;
+      case GameMode.marathon:
+        _highScore = _preferencesService.highScoreMarathon;
+        break;
+      case GameMode.zen:
+        _highScore = _preferencesService.highScoreZen;
+        break;
+    }
     setState(() {});
   }
 
   void _updateHighScore() {
     if (_gameModel.score > _highScore) {
       _highScore = _gameModel.score;
-      _preferencesService.setHighScore(_highScore);
+      _preferencesService.setHighScore(
+          widget.gameMode.toString().split('.').last, _highScore);
     }
   }
 
@@ -110,7 +209,10 @@ class _GameScreenState extends State<GameScreen> {
               _soundService.playDropSound();
             });
           } else if (event.isKeyPressed(LogicalKeyboardKey.space)) {
-            // TODO: Implement hard drop
+            setState(() {
+              _gameModel.hardDrop();
+              _controller.forward();
+            });
           } else if (event.isKeyPressed(LogicalKeyboardKey.keyC)) {
             setState(() => _gameModel.hold());
           }
@@ -124,7 +226,24 @@ class _GameScreenState extends State<GameScreen> {
           Expanded(
             child: Stack(
               children: [
-                GameBoard(gameModel: _gameModel),
+                ValueListenableBuilder<BlockSkin>(
+                  valueListenable: blockSkinNotifier,
+                  builder: (context, blockSkin, child) {
+                    return AnimatedBuilder(
+                      animation: _animation,
+                      builder: (context, child) {
+                        return Transform.translate(
+                          offset: Offset(_animation.value, 0),
+                          child: child,
+                        );
+                      },
+                      child: GameBoard(
+                        gameModel: _gameModel,
+                        blockSkin: blockSkin,
+                      ),
+                    );
+                  },
+                ),
                 if (_gameModel.isGameOver)
                   Center(
                     child: Column(
@@ -212,7 +331,10 @@ class _GameScreenState extends State<GameScreen> {
               _soundService.playDropSound();
             });
           } else if (event.isKeyPressed(LogicalKeyboardKey.space)) {
-            // TODO: Implement hard drop
+            setState(() {
+              _gameModel.hardDrop();
+              _controller.forward(from: 0);
+            });
           } else if (event.isKeyPressed(LogicalKeyboardKey.keyC)) {
             setState(() => _gameModel.hold());
           }
@@ -226,7 +348,24 @@ class _GameScreenState extends State<GameScreen> {
           Expanded(
             child: Stack(
               children: [
-                GameBoard(gameModel: _gameModel),
+                ValueListenableBuilder<BlockSkin>(
+                  valueListenable: blockSkinNotifier,
+                  builder: (context, blockSkin, child) {
+                    return AnimatedBuilder(
+                      animation: _animation,
+                      builder: (context, child) {
+                        return Transform.translate(
+                          offset: Offset(_animation.value, 0),
+                          child: child,
+                        );
+                      },
+                      child: GameBoard(
+                        gameModel: _gameModel,
+                        blockSkin: blockSkin,
+                      ),
+                    );
+                  },
+                ),
                 if (_gameModel.isGameOver)
                   Center(
                     child: Column(
