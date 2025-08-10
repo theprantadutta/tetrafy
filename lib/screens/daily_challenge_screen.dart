@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../services/daily_challenge_service.dart';
-import '../models/daily_challenge.dart';
 
 class DailyChallengeScreen extends StatelessWidget {
   const DailyChallengeScreen({super.key});

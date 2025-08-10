@@ -27,7 +27,7 @@ class ModeSelectionScreen extends StatelessWidget {
                   },
                 ),
               )
-              .toList(),
+              ,
           ListTile(
             title: const Text('Stats'),
             onTap: () {

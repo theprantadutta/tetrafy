@@ -36,22 +36,22 @@ class PreferencesService extends ChangeNotifier {
   }
 
   Future<void> _loadPreferences() async {
-    final prefs = await SharedPreferences.getInstance();
-    _highScoreClassic = prefs.getInt(highScoreClassicKey) ?? 0;
-    _highScoreSprint = prefs.getInt(highScoreSprintKey) ?? 0;
-    _highScoreMarathon = prefs.getInt(highScoreMarathonKey) ?? 0;
-    _highScoreZen = prefs.getInt(highScoreZenKey) ?? 0;
-    _totalLinesCleared = prefs.getInt(totalLinesClearedKey) ?? 0;
-    _totalBlocksDropped = prefs.getInt(totalBlocksDroppedKey) ?? 0;
-    _averageSpeed = prefs.getDouble(averageSpeedKey) ?? 0.0;
-    _totalTimePlayed = prefs.getInt(totalTimePlayedKey) ?? 0;
+    final preferences = await SharedPreferences.getInstance();
+    _highScoreClassic = preferences.getInt(highScoreClassicKey) ?? 0;
+    _highScoreSprint = preferences.getInt(highScoreSprintKey) ?? 0;
+    _highScoreMarathon = preferences.getInt(highScoreMarathonKey) ?? 0;
+    _highScoreZen = preferences.getInt(highScoreZenKey) ?? 0;
+    _totalLinesCleared = preferences.getInt(totalLinesClearedKey) ?? 0;
+    _totalBlocksDropped = preferences.getInt(totalBlocksDroppedKey) ?? 0;
+    _averageSpeed = preferences.getDouble(averageSpeedKey) ?? 0.0;
+    _totalTimePlayed = preferences.getInt(totalTimePlayedKey) ?? 0;
     notifyListeners();
   }
 
   Future<void> setHighScore(String mode, int score) async {
-    final prefs = await SharedPreferences.getInstance();
+    final preferences = await SharedPreferences.getInstance();
     final key = 'highScore_$mode';
-    await prefs.setInt(key, score);
+    await preferences.setInt(key, score);
     switch (mode) {
       case 'classic':
         _highScoreClassic = score;
@@ -70,81 +70,81 @@ class PreferencesService extends ChangeNotifier {
   }
 
   Future<void> incrementLinesCleared(int lines) async {
-    final prefs = await SharedPreferences.getInstance();
+    final preferences = await SharedPreferences.getInstance();
     _totalLinesCleared += lines;
-    await prefs.setInt(totalLinesClearedKey, _totalLinesCleared);
+    await preferences.setInt(totalLinesClearedKey, _totalLinesCleared);
     notifyListeners();
   }
 
   Future<void> incrementBlocksDropped() async {
-    final prefs = await SharedPreferences.getInstance();
+    final preferences = await SharedPreferences.getInstance();
     _totalBlocksDropped++;
-    await prefs.setInt(totalBlocksDroppedKey, _totalBlocksDropped);
+    await preferences.setInt(totalBlocksDroppedKey, _totalBlocksDropped);
     notifyListeners();
   }
 
   Future<void> updateTotalTimePlayed(Duration time) async {
-    final prefs = await SharedPreferences.getInstance();
+    final preferences = await SharedPreferences.getInstance();
     _totalTimePlayed += time.inSeconds;
-    await prefs.setInt(totalTimePlayedKey, _totalTimePlayed);
+    await preferences.setInt(totalTimePlayedKey, _totalTimePlayed);
     notifyListeners();
   }
 
   Future<void> updateAverageSpeed(int lines, Duration time) async {
-    final prefs = await SharedPreferences.getInstance();
+    final preferences = await SharedPreferences.getInstance();
     final minutes = time.inSeconds / 60.0;
     if (minutes > 0) {
       _averageSpeed = (_totalLinesCleared + lines) / minutes;
-      await prefs.setDouble(averageSpeedKey, _averageSpeed);
+      await preferences.setDouble(averageSpeedKey, _averageSpeed);
       notifyListeners();
     }
   }
 
   Future<String> getTheme() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(themeKey) ?? 'pastel';
+    final preferences = await SharedPreferences.getInstance();
+    return preferences.getString(themeKey) ?? 'pastel';
   }
 
   Future<void> setTheme(String theme) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(themeKey, theme);
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(themeKey, theme);
   }
 
   Future<String> getSkin() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(skinKey) ?? 'flat';
+    final preferences = await SharedPreferences.getInstance();
+    return preferences.getString(skinKey) ?? 'flat';
   }
 
   Future<void> setSkin(String skin) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(skinKey, skin);
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(skinKey, skin);
   }
 
   Future<List<String>> getUnlockedThemes() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getStringList('unlockedThemes') ?? ['pastel'];
+    final preferences = await SharedPreferences.getInstance();
+    return preferences.getStringList('unlockedThemes') ?? ['pastel'];
   }
 
   Future<void> unlockTheme(String theme) async {
-    final prefs = await SharedPreferences.getInstance();
+    final preferences = await SharedPreferences.getInstance();
     final themes = await getUnlockedThemes();
     if (!themes.contains(theme)) {
       themes.add(theme);
-      await prefs.setStringList('unlockedThemes', themes);
+      await preferences.setStringList('unlockedThemes', themes);
     }
   }
 
   Future<List<String>> getUnlockedSkins() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getStringList('unlockedSkins') ?? ['flat'];
+    final preferences = await SharedPreferences.getInstance();
+    return preferences.getStringList('unlockedSkins') ?? ['flat'];
   }
 
   Future<void> unlockSkin(String skin) async {
-    final prefs = await SharedPreferences.getInstance();
+    final preferences = await SharedPreferences.getInstance();
     final skins = await getUnlockedSkins();
     if (!skins.contains(skin)) {
       skins.add(skin);
-      await prefs.setStringList('unlockedSkins', skins);
+      await preferences.setStringList('unlockedSkins', skins);
     }
   }
 }

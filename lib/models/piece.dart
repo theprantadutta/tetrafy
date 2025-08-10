@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'point.dart';
 import '../utils/tetromino_data.dart';
-import '../utils/tetromino_data.dart';
 
 enum Tetromino { I, O, T, S, Z, J, L }
 

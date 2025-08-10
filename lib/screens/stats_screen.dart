@@ -7,51 +7,49 @@ class StatsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final prefs = Provider.of<PreferencesService>(context);
-    final textTheme = Theme.of(context).textTheme;
-    final totalTimePlayed = prefs.totalTimePlayed;
-    final totalLinesCleared = prefs.totalLinesCleared;
-    final averageSpeed =
-        totalTimePlayed > 0 ? (totalLinesCleared / (totalTimePlayed / 60)) : 0;
+    final preferences = Provider.of<PreferencesService>(context);
+    final totalTimePlayed = preferences.totalTimePlayed;
+    final totalLinesCleared = preferences.totalLinesCleared;
+    final averageSpeed = totalTimePlayed > 0
+        ? (totalLinesCleared / (totalTimePlayed / 60))
+        : 0;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Statistics'),
-      ),
+      appBar: AppBar(title: const Text('Statistics')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           _buildStatCard(
             title: 'Best Score (Classic)',
-            value: prefs.highScoreClassic.toString(),
+            value: preferences.highScoreClassic.toString(),
             icon: Icons.emoji_events,
             context: context,
           ),
           const SizedBox(height: 16),
           _buildStatCard(
             title: 'Best Score (Sprint)',
-            value: prefs.highScoreSprint.toString(),
+            value: preferences.highScoreSprint.toString(),
             icon: Icons.emoji_events,
             context: context,
           ),
           const SizedBox(height: 16),
           _buildStatCard(
             title: 'Best Score (Marathon)',
-            value: prefs.highScoreMarathon.toString(),
+            value: preferences.highScoreMarathon.toString(),
             icon: Icons.emoji_events,
             context: context,
           ),
           const SizedBox(height: 16),
           _buildStatCard(
             title: 'Best Score (Zen)',
-            value: prefs.highScoreZen.toString(),
+            value: preferences.highScoreZen.toString(),
             icon: Icons.emoji_events,
             context: context,
           ),
           const SizedBox(height: 16),
           _buildStatCard(
             title: 'Total Lines Cleared',
-            value: prefs.totalLinesCleared.toString(),
+            value: preferences.totalLinesCleared.toString(),
             icon: Icons.clear_all,
             context: context,
           ),
@@ -65,7 +63,7 @@ class StatsScreen extends StatelessWidget {
           const SizedBox(height: 16),
           _buildStatCard(
             title: 'Total Blocks Dropped',
-            value: prefs.totalBlocksDropped.toString(),
+            value: preferences.totalBlocksDropped.toString(),
             icon: Icons.view_in_ar,
             context: context,
           ),
@@ -97,26 +95,17 @@ class StatsScreen extends StatelessWidget {
 
     return Card(
       elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            Icon(
-              icon,
-              size: 40,
-              color: colorScheme.primary,
-            ),
+            Icon(icon, size: 40, color: colorScheme.primary),
             const SizedBox(width: 16),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: textTheme.titleMedium,
-                ),
+                Text(title, style: textTheme.titleMedium),
                 const SizedBox(height: 4),
                 Text(
                   value,

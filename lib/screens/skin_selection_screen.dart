@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../models/block_skin.dart';
 import '../main.dart';
 import '../services/preferences_service.dart';
-import '../main.dart';
 
 class SkinSelectionScreen extends StatelessWidget {
   const SkinSelectionScreen({super.key});

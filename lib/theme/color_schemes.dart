@@ -8,8 +8,6 @@ const retroNeon = ColorScheme(
   onSecondary: Colors.black,
   error: Colors.red,
   onError: Colors.white,
-  background: Colors.black,
-  onBackground: Colors.white,
   surface: Colors.grey,
   onSurface: Colors.white,
 );
@@ -22,8 +20,6 @@ const pastel = ColorScheme(
   onSecondary: Colors.white,
   error: Colors.red,
   onError: Colors.white,
-  background: Colors.white,
-  onBackground: Colors.black,
   surface: Colors.white,
   onSurface: Colors.black,
 );
@@ -36,8 +32,6 @@ const monochrome = ColorScheme(
   onSecondary: Colors.white,
   error: Colors.red,
   onError: Colors.white,
-  background: Colors.white,
-  onBackground: Colors.black,
   surface: Colors.white,
   onSurface: Colors.black,
 );
@@ -50,8 +44,6 @@ const cyberpunk = ColorScheme(
   onSecondary: Colors.white,
   error: Colors.red,
   onError: Colors.white,
-  background: Colors.black,
-  onBackground: Colors.white,
   surface: Colors.grey,
   onSurface: Colors.white,
 );

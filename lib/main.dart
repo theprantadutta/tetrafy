@@ -1,30 +1,36 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'models/game_model.dart';
-import 'models/game_mode.dart';
-import 'widgets/game_board.dart';
-import 'widgets/piece_preview.dart';
-import 'services/preferences_service.dart';
-import 'theme/app_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'services/sound_service.dart';
-import 'screens/mode_selection_screen.dart';
-import 'models/block_skin.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'models/player_profile.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'models/block_skin.dart';
+import 'models/game_mode.dart';
+import 'models/game_model.dart';
+import 'models/player_profile.dart';
+import 'screens/mode_selection_screen.dart';
 import 'screens/stats_screen.dart';
 import 'services/player_profile_service.dart';
+import 'services/preferences_service.dart';
+import 'services/sound_service.dart';
+import 'theme/app_theme.dart';
+import 'widgets/game_board.dart';
+import 'widgets/piece_preview.dart';
 
-final ValueNotifier<ThemeData> themeNotifier = ValueNotifier(AppTheme.lightTheme);
-final ValueNotifier<BlockSkin> blockSkinNotifier = ValueNotifier(BlockSkin.flat);
+final ValueNotifier<ThemeData> themeNotifier = ValueNotifier(
+  AppTheme.lightTheme,
+);
+final ValueNotifier<BlockSkin> blockSkinNotifier = ValueNotifier(
+  BlockSkin.flat,
+);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final prefs = await SharedPreferences.getInstance();
-  final theme = prefs.getString('theme') ?? 'pastel';
-  final skin = prefs.getString('skin') ?? 'flat';
+  final preferences = await SharedPreferences.getInstance();
+  final theme = preferences.getString('theme') ?? 'pastel';
+  final skin = preferences.getString('skin') ?? 'flat';
   themeNotifier.value = _getThemeData(theme);
   blockSkinNotifier.value = _getBlockSkin(skin);
   runApp(
@@ -75,9 +81,7 @@ class MyApp extends StatelessWidget {
           title: 'Tetras',
           theme: theme,
           home: const ModeSelectionScreen(),
-          routes: {
-            '/stats': (context) => const StatsScreen(),
-          },
+          routes: {'/stats': (context) => const StatsScreen()},
         );
       },
     );
@@ -130,7 +134,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           _updateHighScore();
           _profileService.addXp(_profile, _gameModel.score);
           _preferencesService.incrementLinesCleared(_gameModel.linesCleared);
-          _preferencesService.updateTotalTimePlayed(const Duration(milliseconds: 500));
+          _preferencesService.updateTotalTimePlayed(
+            const Duration(milliseconds: 500),
+          );
         }
       });
     }
@@ -163,19 +169,16 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     if (_gameModel.score > _highScore) {
       _highScore = _gameModel.score;
       _preferencesService.setHighScore(
-          widget.gameMode.toString().split('.').last, _highScore);
+        widget.gameMode.toString().split('.').last,
+        _highScore,
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Tetras',
-          style: GoogleFonts.pressStart2p(),
-        ),
-      ),
+      appBar: AppBar(title: Text('Tetras', style: GoogleFonts.pressStart2p())),
       body: LayoutBuilder(
         builder: (context, constraints) {
           if (constraints.maxWidth < 600) {
@@ -189,35 +192,49 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildMobileLayout() {
-    return RawKeyboardListener(
+    return KeyboardListener(
       focusNode: FocusNode(),
       autofocus: true,
-      onKey: (event) {
+      onKeyEvent: (event) {
         if (_gameModel.isPlaying) {
-          if (event.isKeyPressed(LogicalKeyboardKey.arrowLeft)) {
+          if (HardwareKeyboard.instance.isLogicalKeyPressed(
+            LogicalKeyboardKey.arrowLeft,
+          )) {
             setState(() => _gameModel.moveLeft());
-          } else if (event.isKeyPressed(LogicalKeyboardKey.arrowRight)) {
+          } else if (HardwareKeyboard.instance.isLogicalKeyPressed(
+            LogicalKeyboardKey.arrowRight,
+          )) {
             setState(() => _gameModel.moveRight());
-          } else if (event.isKeyPressed(LogicalKeyboardKey.arrowUp)) {
+          } else if (HardwareKeyboard.instance.isLogicalKeyPressed(
+            LogicalKeyboardKey.arrowUp,
+          )) {
             setState(() {
               _gameModel.rotate();
               _soundService.playRotateSound();
             });
-          } else if (event.isKeyPressed(LogicalKeyboardKey.arrowDown)) {
+          } else if (HardwareKeyboard.instance.isLogicalKeyPressed(
+            LogicalKeyboardKey.arrowDown,
+          )) {
             setState(() {
               _gameModel.moveDown();
               _soundService.playDropSound();
             });
-          } else if (event.isKeyPressed(LogicalKeyboardKey.space)) {
+          } else if (HardwareKeyboard.instance.isLogicalKeyPressed(
+            LogicalKeyboardKey.space,
+          )) {
             setState(() {
               _gameModel.hardDrop();
               _controller.forward();
             });
-          } else if (event.isKeyPressed(LogicalKeyboardKey.keyC)) {
+          } else if (HardwareKeyboard.instance.isLogicalKeyPressed(
+            LogicalKeyboardKey.keyC,
+          )) {
             setState(() => _gameModel.hold());
           }
         }
-        if (event.isKeyPressed(LogicalKeyboardKey.keyP)) {
+        if (HardwareKeyboard.instance.isLogicalKeyPressed(
+          LogicalKeyboardKey.keyP,
+        )) {
           setState(() => _gameModel.togglePause());
         }
       },
@@ -311,35 +328,49 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildDesktopLayout() {
-    return RawKeyboardListener(
+    return KeyboardListener(
       focusNode: FocusNode(),
       autofocus: true,
-      onKey: (event) {
+      onKeyEvent: (event) {
         if (_gameModel.isPlaying) {
-          if (event.isKeyPressed(LogicalKeyboardKey.arrowLeft)) {
+          if (HardwareKeyboard.instance.isLogicalKeyPressed(
+            LogicalKeyboardKey.arrowLeft,
+          )) {
             setState(() => _gameModel.moveLeft());
-          } else if (event.isKeyPressed(LogicalKeyboardKey.arrowRight)) {
+          } else if (HardwareKeyboard.instance.isLogicalKeyPressed(
+            LogicalKeyboardKey.arrowRight,
+          )) {
             setState(() => _gameModel.moveRight());
-          } else if (event.isKeyPressed(LogicalKeyboardKey.arrowUp)) {
+          } else if (HardwareKeyboard.instance.isLogicalKeyPressed(
+            LogicalKeyboardKey.arrowUp,
+          )) {
             setState(() {
               _gameModel.rotate();
               _soundService.playRotateSound();
             });
-          } else if (event.isKeyPressed(LogicalKeyboardKey.arrowDown)) {
+          } else if (HardwareKeyboard.instance.isLogicalKeyPressed(
+            LogicalKeyboardKey.arrowDown,
+          )) {
             setState(() {
               _gameModel.moveDown();
               _soundService.playDropSound();
             });
-          } else if (event.isKeyPressed(LogicalKeyboardKey.space)) {
+          } else if (HardwareKeyboard.instance.isLogicalKeyPressed(
+            LogicalKeyboardKey.space,
+          )) {
             setState(() {
               _gameModel.hardDrop();
               _controller.forward(from: 0);
             });
-          } else if (event.isKeyPressed(LogicalKeyboardKey.keyC)) {
+          } else if (HardwareKeyboard.instance.isLogicalKeyPressed(
+            LogicalKeyboardKey.keyC,
+          )) {
             setState(() => _gameModel.hold());
           }
         }
-        if (event.isKeyPressed(LogicalKeyboardKey.keyP)) {
+        if (HardwareKeyboard.instance.isLogicalKeyPressed(
+          LogicalKeyboardKey.keyP,
+        )) {
           setState(() => _gameModel.togglePause());
         }
       },
