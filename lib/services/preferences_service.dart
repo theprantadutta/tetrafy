@@ -21,7 +21,9 @@ class PreferencesService extends ChangeNotifier {
   int _totalBlocksDropped = 0;
   double _averageSpeed = 0.0;
   int _totalTimePlayed = 0;
+  String _currentTheme = 'pastel';
 
+  String get currentTheme => _currentTheme;
   int get highScoreClassic => _highScoreClassic;
   int get highScoreSprint => _highScoreSprint;
   int get highScoreMarathon => _highScoreMarathon;
@@ -45,6 +47,7 @@ class PreferencesService extends ChangeNotifier {
     _totalBlocksDropped = preferences.getInt(totalBlocksDroppedKey) ?? 0;
     _averageSpeed = preferences.getDouble(averageSpeedKey) ?? 0.0;
     _totalTimePlayed = preferences.getInt(totalTimePlayedKey) ?? 0;
+    _currentTheme = preferences.getString(themeKey) ?? 'pastel';
     notifyListeners();
   }
 
@@ -108,6 +111,8 @@ class PreferencesService extends ChangeNotifier {
   Future<void> setTheme(String theme) async {
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString(themeKey, theme);
+    _currentTheme = theme;
+    notifyListeners();
   }
 
   Future<String> getSkin() async {

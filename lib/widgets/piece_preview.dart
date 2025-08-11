@@ -5,8 +5,9 @@ import '../utils/tetromino_data.dart';
 
 class PiecePreview extends StatefulWidget {
   final Piece? piece;
+  final Color color;
 
-  const PiecePreview({super.key, this.piece});
+  const PiecePreview({super.key, this.piece, this.color = Colors.red});
 
   @override
   State<PiecePreview> createState() => _PiecePreviewState();
@@ -65,7 +66,7 @@ class _PiecePreviewState extends State<PiecePreview>
                     final points = tetrominoData[widget.piece!.type]!;
                     final isPiece = points.contains(Point(x, y));
                     return Container(
-                      color: isPiece ? Colors.red : Colors.transparent,
+                      color: isPiece ? widget.color : Colors.transparent,
                     );
                   },
                 ),

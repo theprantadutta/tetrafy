@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:tetrafy/services/preferences_service.dart';
 
@@ -15,108 +16,77 @@ class StatsScreen extends StatelessWidget {
         : 0;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Statistics')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _buildStatCard(
-            title: 'Best Score (Classic)',
-            value: preferences.highScoreClassic.toString(),
-            icon: Icons.emoji_events,
-            context: context,
-          ),
-          const SizedBox(height: 16),
-          _buildStatCard(
-            title: 'Best Score (Sprint)',
-            value: preferences.highScoreSprint.toString(),
-            icon: Icons.emoji_events,
-            context: context,
-          ),
-          const SizedBox(height: 16),
-          _buildStatCard(
-            title: 'Best Score (Marathon)',
-            value: preferences.highScoreMarathon.toString(),
-            icon: Icons.emoji_events,
-            context: context,
-          ),
-          const SizedBox(height: 16),
-          _buildStatCard(
-            title: 'Best Score (Zen)',
-            value: preferences.highScoreZen.toString(),
-            icon: Icons.emoji_events,
-            context: context,
-          ),
-          const SizedBox(height: 16),
-          _buildStatCard(
-            title: 'Total Lines Cleared',
-            value: preferences.totalLinesCleared.toString(),
-            icon: Icons.clear_all,
-            context: context,
-          ),
-          const SizedBox(height: 16),
-          _buildStatCard(
-            title: 'Average Speed (lines/min)',
-            value: averageSpeed.toStringAsFixed(2),
-            icon: Icons.speed,
-            context: context,
-          ),
-          const SizedBox(height: 16),
-          _buildStatCard(
-            title: 'Total Blocks Dropped',
-            value: preferences.totalBlocksDropped.toString(),
-            icon: Icons.view_in_ar,
-            context: context,
-          ),
-          const SizedBox(height: 32),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Back to Menu'),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () {
-              // TODO: Implement screenshot and sharing functionality
-            },
-            child: const Text('Share Score'),
-          ),
-        ],
+      backgroundColor: Colors.black,
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 40),
+            Center(
+              child: Text(
+                'STATS',
+                style: GoogleFonts.pressStart2p(
+                  fontSize: 40,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(height: 40),
+            _buildStatTile(
+              title: 'High Score',
+              value: preferences.highScoreClassic.toString(),
+            ),
+            _buildStatTile(
+              title: 'Total Lines Cleared',
+              value: preferences.totalLinesCleared.toString(),
+            ),
+            _buildStatTile(
+              title: 'Total Time Played',
+              value: '${(totalTimePlayed / 60).toStringAsFixed(2)} minutes',
+            ),
+            _buildStatTile(
+              title: 'Average Speed',
+              value: '${averageSpeed.toStringAsFixed(2)} lines/min',
+            ),
+            _buildStatTile(
+              title: 'Total Blocks Dropped',
+              value: preferences.totalBlocksDropped.toString(),
+            ),
+            const Spacer(),
+            Center(
+              child: ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black,
+                  side: const BorderSide(color: Colors.white),
+                  shape: const BeveledRectangleBorder(),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Text(
+                    'BACK',
+                    style: GoogleFonts.pressStart2p(color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildStatCard({
-    required String title,
-    required String value,
-    required IconData icon,
-    required BuildContext context,
-  }) {
-    final textTheme = Theme.of(context).textTheme;
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Icon(icon, size: 40, color: colorScheme.primary),
-            const SizedBox(width: 16),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: textTheme.titleMedium),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+  Widget _buildStatTile({required String title, required String value}) {
+    return ListTile(
+      title: Text(
+        title,
+        style: GoogleFonts.pressStart2p(color: Colors.white, fontSize: 16),
+      ),
+      trailing: Text(
+        value,
+        style: GoogleFonts.pressStart2p(color: Colors.white, fontSize: 16),
       ),
     );
   }

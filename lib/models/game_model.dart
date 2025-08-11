@@ -16,8 +16,10 @@ class GameModel {
   );
 
   late Piece currentPiece;
-  Piece? holdPiece;
+  Piece? _holdPiece;
   late Piece nextPiece;
+
+  Piece? get heldPiece => _holdPiece;
   final BagGenerator _bagGenerator = BagGenerator();
   int score = 0;
   int level = 1;
@@ -44,18 +46,18 @@ class GameModel {
     linesCleared = 0;
     isGameOver = false;
     isPlaying = true;
-    holdPiece = null;
+    _holdPiece = null;
     _spawnNewPiece();
   }
 
   void hold() {
-    if (holdPiece == null) {
-      holdPiece = currentPiece;
+    if (_holdPiece == null) {
+      _holdPiece = currentPiece;
       _spawnNewPiece();
     } else {
       final temp = currentPiece;
-      currentPiece = holdPiece!;
-      holdPiece = temp;
+      currentPiece = _holdPiece!;
+      _holdPiece = temp;
     }
   }
 

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+
 import '../models/game_mode.dart';
-import '../main.dart';
+import 'game_screen.dart';
 
 class ModeSelectionScreen extends StatelessWidget {
   const ModeSelectionScreen({super.key});
@@ -8,33 +10,49 @@ class ModeSelectionScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Select Mode'),
-      ),
-      body: ListView(
-        children: [
-          ...GameMode.values
-              .map(
-                (mode) => ListTile(
-                  title: Text(mode.toString().split('.').last),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => GameScreen(gameMode: mode),
-                      ),
-                    );
-                  },
+      backgroundColor: Colors.black,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'TETRAFY',
+              style: GoogleFonts.pressStart2p(
+                fontSize: 40,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 60),
+            ...GameMode.values.map(
+              (mode) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: SizedBox(
+                  width: 200,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => GameScreen(gameMode: mode),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      side: const BorderSide(color: Colors.white),
+                      shape: const BeveledRectangleBorder(),
+                    ),
+                    child: Text(
+                      mode.toString().split('.').last.toUpperCase(),
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
                 ),
-              )
-              ,
-          ListTile(
-            title: const Text('Stats'),
-            onTap: () {
-              Navigator.pushNamed(context, '/stats');
-            },
-          ),
-        ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

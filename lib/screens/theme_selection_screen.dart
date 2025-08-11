@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../main.dart';
 import '../services/preferences_service.dart';
@@ -8,42 +10,96 @@ class ThemeSelectionScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final preferences = Provider.of<PreferencesService>(context);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Select Theme'),
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Align(
+              alignment: Alignment.topLeft,
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+            Text(
+              'THEME SELECTION',
+              style: GoogleFonts.pressStart2p(
+                color: Colors.white,
+                fontSize: 24,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Expanded(
+              child: Consumer<PreferencesService>(
+                builder: (context, preferences, child) {
+                  final currentTheme = preferences.currentTheme;
+                  return ListView(
+                    children: [
+                      _buildThemeTile(
+                        context: context,
+                        title: 'Pastel',
+                        theme: AppTheme.lightTheme,
+                        themeName: 'pastel',
+                        currentTheme: currentTheme,
+                      ),
+                      _buildThemeTile(
+                        context: context,
+                        title: 'Retro Neon',
+                        theme: AppTheme.darkTheme,
+                        themeName: 'retroNeon',
+                        currentTheme: currentTheme,
+                      ),
+                      _buildThemeTile(
+                        context: context,
+                        title: 'Monochrome',
+                        theme: AppTheme.monochromeTheme,
+                        themeName: 'monochrome',
+                        currentTheme: currentTheme,
+                      ),
+                      _buildThemeTile(
+                        context: context,
+                        title: 'Cyberpunk',
+                        theme: AppTheme.cyberpunkTheme,
+                        themeName: 'cyberpunk',
+                        currentTheme: currentTheme,
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
-      body: ListView(
-        children: [
-          ListTile(
-            title: const Text('Pastel'),
-            onTap: () {
-              themeNotifier.value = AppTheme.lightTheme;
-              PreferencesService().setTheme('pastel');
-            },
-          ),
-          ListTile(
-            title: const Text('Retro Neon'),
-            onTap: () {
-              themeNotifier.value = AppTheme.darkTheme;
-              PreferencesService().setTheme('retroNeon');
-            },
-          ),
-          ListTile(
-            title: const Text('Monochrome'),
-            onTap: () {
-              themeNotifier.value = AppTheme.monochromeTheme;
-              PreferencesService().setTheme('monochrome');
-            },
-          ),
-          ListTile(
-            title: const Text('Cyberpunk'),
-            onTap: () {
-              themeNotifier.value = AppTheme.cyberpunkTheme;
-              PreferencesService().setTheme('cyberpunk');
-            },
-          ),
-        ],
+    );
+  }
+
+  Widget _buildThemeTile({
+    required BuildContext context,
+    required String title,
+    required ThemeData theme,
+    required String themeName,
+    required String currentTheme,
+  }) {
+    final isSelected = currentTheme == themeName;
+    return ListTile(
+      title: Text(
+        title,
+        style: GoogleFonts.pressStart2p(
+          color: Colors.white,
+          fontSize: 16,
+        ),
       ),
+      trailing: isSelected
+          ? const Icon(Icons.check, color: Colors.white)
+          : null,
+      onTap: () {
+        themeNotifier.value = theme;
+        Provider.of<PreferencesService>(context, listen: false)
+            .setTheme(themeName);
+      },
     );
   }
 }
