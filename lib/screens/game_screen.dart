@@ -424,6 +424,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../main.dart';
 import '../models/block_skin.dart';
 import '../models/game_mode.dart';
 import '../models/game_model.dart';
@@ -432,9 +433,8 @@ import '../services/player_profile_service.dart';
 import '../services/preferences_service.dart';
 import '../services/sound_service.dart';
 import '../widgets/game_board.dart';
-import '../widgets/piece_preview.dart';
 import '../widgets/particle_background.dart';
-import '../main.dart';
+import '../widgets/piece_preview.dart';
 
 class GameScreen extends StatefulWidget {
   final GameMode gameMode;
@@ -527,7 +527,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: theme.colorScheme.background,
+      backgroundColor: theme.colorScheme.surface,
       body: KeyboardListener(
         focusNode: FocusNode(),
         autofocus: true,
@@ -593,11 +593,21 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                               Expanded(
                                 flex: 3,
                                 child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceEvenly,
                                   children: [
-                                    _buildStatColumn('SCORE', _gameModel.score.toString()),
-                                    _buildStatColumn('LINES', _gameModel.linesCleared.toString()),
-                                    _buildStatColumn('LEVEL', _gameModel.level.toString()),
+                                    _buildStatColumn(
+                                      'SCORE',
+                                      _gameModel.score.toString(),
+                                    ),
+                                    _buildStatColumn(
+                                      'LINES',
+                                      _gameModel.linesCleared.toString(),
+                                    ),
+                                    _buildStatColumn(
+                                      'LEVEL',
+                                      _gameModel.level.toString(),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -610,27 +620,29 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                             ],
                           ),
                         ),
-                        
+
                         const SizedBox(height: 8),
-                        
+
                         // Game board area - takes remaining space minus controls
                         Expanded(
-                          child: Container(
+                          child: SizedBox(
                             width: double.infinity,
                             child: LayoutBuilder(
                               builder: (context, gameConstraints) {
                                 // Calculate proper game board size
                                 final aspectRatio = 10.0 / 20.0;
                                 double boardWidth, boardHeight;
-                                
-                                if (gameConstraints.maxWidth / gameConstraints.maxHeight > aspectRatio) {
+
+                                if (gameConstraints.maxWidth /
+                                        gameConstraints.maxHeight >
+                                    aspectRatio) {
                                   boardHeight = gameConstraints.maxHeight;
                                   boardWidth = boardHeight * aspectRatio;
                                 } else {
                                   boardWidth = gameConstraints.maxWidth;
                                   boardHeight = boardWidth / aspectRatio;
                                 }
-                                
+
                                 return Center(
                                   child: Container(
                                     width: boardWidth,
@@ -648,7 +660,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                                         CustomPaint(
                                           size: Size(boardWidth, boardHeight),
                                           painter: GridPainter(
-                                            gridColor: theme.colorScheme.onBackground.withOpacity(0.1),
+                                            gridColor: theme
+                                                .colorScheme
+                                                .onSurface
+                                                .withOpacity(0.1),
                                           ),
                                         ),
                                         // Game board
@@ -659,7 +674,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                                               animation: _animation,
                                               builder: (context, child) {
                                                 return Transform.translate(
-                                                  offset: Offset(_animation.value, 0),
+                                                  offset: Offset(
+                                                    _animation.value,
+                                                    0,
+                                                  ),
                                                   child: child,
                                                 );
                                               },
@@ -670,8 +688,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                                             );
                                           },
                                         ),
-                                        if (_gameModel.isGameOver) _buildGameOverOverlay(),
-                                        if (!_gameModel.isPlaying && !_gameModel.isGameOver)
+                                        if (_gameModel.isGameOver)
+                                          _buildGameOverOverlay(),
+                                        if (!_gameModel.isPlaying &&
+                                            !_gameModel.isGameOver)
                                           _buildPausedOverlay(),
                                       ],
                                     ),
@@ -681,11 +701,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                             ),
                           ),
                         ),
-                        
+
                         const SizedBox(height: 8),
-                        
+
                         // Control buttons - fixed height, properly constrained
-                        Container(
+                        SizedBox(
                           height: 80,
                           child: Row(
                             children: [
@@ -695,17 +715,22 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                                   children: [
                                     Expanded(
                                       child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceEvenly,
                                         children: [
                                           _buildActionButton(
                                             Icons.rotate_right,
                                             'ROTATE',
-                                            () => setState(() => _gameModel.rotate()),
+                                            () => setState(
+                                              () => _gameModel.rotate(),
+                                            ),
                                           ),
                                           _buildActionButton(
                                             Icons.swap_horiz,
                                             'HOLD',
-                                            () => setState(() => _gameModel.hold()),
+                                            () => setState(
+                                              () => _gameModel.hold(),
+                                            ),
                                           ),
                                         ],
                                       ),
@@ -715,17 +740,19 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                                       child: _buildActionButton(
                                         Icons.pause,
                                         'PAUSE',
-                                        () => setState(() => _gameModel.togglePause()),
+                                        () => setState(
+                                          () => _gameModel.togglePause(),
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                              
+
                               const SizedBox(width: 16),
-                              
+
                               // Right side - movement controls
-                              Container(
+                              SizedBox(
                                 width: 120,
                                 height: 80,
                                 child: Column(
@@ -735,26 +762,35 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                                       child: Center(
                                         child: _buildMovementButton(
                                           Icons.keyboard_arrow_down,
-                                          () => setState(() => _gameModel.moveDown()),
+                                          () => setState(
+                                            () => _gameModel.moveDown(),
+                                          ),
                                         ),
                                       ),
                                     ),
                                     // Middle row - left, hard drop, right
                                     Expanded(
                                       child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceEvenly,
                                         children: [
                                           _buildMovementButton(
                                             Icons.keyboard_arrow_left,
-                                            () => setState(() => _gameModel.moveLeft()),
+                                            () => setState(
+                                              () => _gameModel.moveLeft(),
+                                            ),
                                           ),
                                           _buildMovementButton(
                                             Icons.keyboard_double_arrow_down,
-                                            () => setState(() => _gameModel.hardDrop()),
+                                            () => setState(
+                                              () => _gameModel.hardDrop(),
+                                            ),
                                           ),
                                           _buildMovementButton(
                                             Icons.keyboard_arrow_right,
-                                            () => setState(() => _gameModel.moveRight()),
+                                            () => setState(
+                                              () => _gameModel.moveRight(),
+                                            ),
                                           ),
                                         ],
                                       ),
@@ -786,7 +822,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           Text(
             label,
             style: GoogleFonts.pressStart2p(
-              color: theme.colorScheme.onBackground.withOpacity(0.7),
+              color: theme.colorScheme.onSurface.withOpacity(0.7),
               fontSize: 8,
             ),
           ),
@@ -794,7 +830,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           Text(
             value,
             style: GoogleFonts.pressStart2p(
-              color: theme.colorScheme.onBackground,
+              color: theme.colorScheme.onSurface,
               fontSize: 16,
             ),
           ),
@@ -811,7 +847,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         Text(
           label,
           style: GoogleFonts.pressStart2p(
-            color: theme.colorScheme.onBackground.withOpacity(0.7),
+            color: theme.colorScheme.onSurface.withOpacity(0.7),
             fontSize: 8,
           ),
         ),
@@ -832,7 +868,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildActionButton(IconData icon, String label, VoidCallback onPressed) {
+  Widget _buildActionButton(
+    IconData icon,
+    String label,
+    VoidCallback onPressed,
+  ) {
     final theme = Theme.of(context);
     return Expanded(
       child: GestureDetector(
@@ -849,12 +889,12 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: theme.colorScheme.onBackground, size: 18),
+              Icon(icon, color: theme.colorScheme.onSurface, size: 18),
               const SizedBox(height: 2),
               Text(
                 label,
                 style: GoogleFonts.pressStart2p(
-                  color: theme.colorScheme.onBackground,
+                  color: theme.colorScheme.onSurface,
                   fontSize: 7,
                 ),
               ),
@@ -879,11 +919,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           ),
           borderRadius: BorderRadius.circular(6),
         ),
-        child: Icon(
-          icon,
-          color: theme.colorScheme.onBackground,
-          size: 18,
-        ),
+        child: Icon(icon, color: theme.colorScheme.onSurface, size: 18),
       ),
     );
   }
@@ -911,7 +947,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               'Score: ${_gameModel.score}',
               style: GoogleFonts.pressStart2p(
                 fontSize: 12,
-                color: theme.colorScheme.onBackground,
+                color: theme.colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 16),
@@ -926,7 +962,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: theme.colorScheme.primary,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                   ),
                   child: Text(
                     'RESTART',
@@ -943,7 +982,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: theme.colorScheme.secondary,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                   ),
                   child: Text(
                     'EXIT',
@@ -973,7 +1015,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           'PAUSED',
           style: GoogleFonts.pressStart2p(
             fontSize: 24,
-            color: theme.colorScheme.onBackground,
+            color: theme.colorScheme.onSurface,
           ),
         ),
       ),
@@ -1001,21 +1043,13 @@ class GridPainter extends CustomPainter {
     // Draw vertical lines
     for (int i = 1; i < cols; i++) {
       final x = i * cellWidth;
-      canvas.drawLine(
-        Offset(x, 0),
-        Offset(x, size.height),
-        paint,
-      );
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }
 
     // Draw horizontal lines
     for (int i = 1; i < rows; i++) {
       final y = i * cellHeight;
-      canvas.drawLine(
-        Offset(0, y),
-        Offset(size.width, y),
-        paint,
-      );
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
     }
   }
 

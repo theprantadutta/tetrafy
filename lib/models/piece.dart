@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'point.dart';
+
 import '../utils/tetromino_data.dart';
+import 'point.dart';
 
 enum Tetromino { I, O, T, S, Z, J, L }
 
@@ -10,11 +11,7 @@ class Piece {
   int rotation;
   Point<int> position;
 
-  Piece({
-    required this.type,
-    this.rotation = 0,
-    required this.position,
-  });
+  Piece({required this.type, this.rotation = 0, required this.position});
 
   // TODO: Add methods for rotation and movement
 }

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'piece.dart';
-import 'point.dart';
+
 import '../utils/bag_generator.dart';
 import '../utils/tetromino_data.dart';
 import 'game_mode.dart';
+import 'piece.dart';
+import 'point.dart';
 
 class GameModel {
   final GameMode gameMode;
@@ -88,14 +89,22 @@ class GameModel {
   }
 
   void hardDrop() {
-    while (isValidPosition(Point(currentPiece.position.x, currentPiece.position.y + 1))) {
-      currentPiece.position = Point(currentPiece.position.x, currentPiece.position.y + 1);
+    while (isValidPosition(
+      Point(currentPiece.position.x, currentPiece.position.y + 1),
+    )) {
+      currentPiece.position = Point(
+        currentPiece.position.x,
+        currentPiece.position.y + 1,
+      );
     }
     _placePiece();
   }
 
   void _move(int dx, int dy) {
-    final newPosition = Point(currentPiece.position.x + dx, currentPiece.position.y + dy);
+    final newPosition = Point(
+      currentPiece.position.x + dx,
+      currentPiece.position.y + dy,
+    );
     if (isValidPosition(newPosition)) {
       currentPiece.position = newPosition;
     } else {
@@ -106,7 +115,11 @@ class GameModel {
   }
 
   void _placePiece() {
-    final points = getPiecePoints(currentPiece.type, currentPiece.rotation, currentPiece.position);
+    final points = getPiecePoints(
+      currentPiece.type,
+      currentPiece.rotation,
+      currentPiece.position,
+    );
     for (final point in points) {
       if (point.y >= 0) {
         grid[point.y][point.x] = currentPiece.color;
@@ -117,7 +130,11 @@ class GameModel {
   }
 
   bool isValidPosition(Point<int> position) {
-    final points = getPiecePoints(currentPiece.type, currentPiece.rotation, position);
+    final points = getPiecePoints(
+      currentPiece.type,
+      currentPiece.rotation,
+      position,
+    );
     for (final point in points) {
       if (point.x < 0 || point.x >= gridWidth || point.y >= gridHeight) {
         return false;
@@ -129,9 +146,15 @@ class GameModel {
     return true;
   }
 
-  List<Point<int>> getPiecePoints(Tetromino type, int rotation, Point<int> position) {
+  List<Point<int>> getPiecePoints(
+    Tetromino type,
+    int rotation,
+    Point<int> position,
+  ) {
     final points = tetrominoData[type]![rotation % 4];
-    return points.map((p) => Point(p.x + position.x, p.y + position.y)).toList();
+    return points
+        .map((p) => Point(p.x + position.x, p.y + position.y))
+        .toList();
   }
 
   void _clearLines() {

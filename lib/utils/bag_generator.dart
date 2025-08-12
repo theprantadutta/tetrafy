@@ -1,4 +1,5 @@
 import 'dart:math';
+
 import '../models/piece.dart';
 
 class BagGenerator {
