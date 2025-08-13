@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import '../models/block_skin.dart';
 import '../main.dart';
 import '../services/preferences_service.dart';

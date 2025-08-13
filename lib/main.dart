@@ -1,24 +1,16 @@
-import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models/block_skin.dart';
-import 'models/game_mode.dart';
-import 'models/game_model.dart';
-import 'models/player_profile.dart';
 import 'screens/game_screen.dart';
 import 'screens/mode_selection_screen.dart';
 import 'screens/stats_screen.dart';
-import 'services/player_profile_service.dart';
 import 'services/preferences_service.dart';
-import 'services/sound_service.dart';
 import 'theme/app_theme.dart';
-import 'widgets/game_board.dart';
-import 'widgets/piece_preview.dart';
+import 'widgets/particle_background.dart';
 
 final ValueNotifier<ThemeData> themeNotifier = ValueNotifier(
   AppTheme.lightTheme,
@@ -78,19 +70,27 @@ class MyApp extends StatelessWidget {
     return ValueListenableBuilder<ThemeData>(
       valueListenable: themeNotifier,
       builder: (context, theme, child) {
-        return MaterialApp(
-          title: 'Tetras',
-          theme: theme.copyWith(
-            textTheme: GoogleFonts.pressStart2pTextTheme(
-              theme.textTheme,
-            ),
-            scaffoldBackgroundColor: Colors.black,
+        return Directionality(
+          textDirection: TextDirection.ltr,
+          child: Stack(
+            children: [
+              const ParticleBackground(),
+              MaterialApp(
+                title: 'Tetras',
+                theme: theme.copyWith(
+                  textTheme: GoogleFonts.pressStart2pTextTheme(
+                    theme.textTheme,
+                  ),
+                  scaffoldBackgroundColor: theme.colorScheme.surface,
+                ),
+                home: const ModeSelectionScreen(),
+                routes: {
+                  '/stats': (context) => const StatsScreen(),
+                  '/game': (context) => const GameScreen(),
+                },
+              ),
+            ],
           ),
-          home: const ModeSelectionScreen(),
-          routes: {
-            '/stats': (context) => const StatsScreen(),
-            '/game': (context) => const GameScreen(),
-          },
         );
       },
     );

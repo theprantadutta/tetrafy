@@ -10,7 +10,6 @@ class ThemeSelectionScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final preferences = Provider.of<PreferencesService>(context);
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(

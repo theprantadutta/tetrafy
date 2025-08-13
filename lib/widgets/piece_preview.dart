@@ -1,75 +1,57 @@
 import 'package:flutter/material.dart';
 import '../models/piece.dart';
-import '../models/point.dart';
 import '../utils/tetromino_data.dart';
 
-class PiecePreview extends StatefulWidget {
+class PiecePreview extends StatelessWidget {
   final Piece? piece;
-  final Color color;
 
-  const PiecePreview({super.key, this.piece, this.color = Colors.red});
-
-  @override
-  State<PiecePreview> createState() => _PiecePreviewState();
-}
-
-class _PiecePreviewState extends State<PiecePreview>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 1),
-    )..repeat(reverse: true);
-    _animation = Tween<double>(begin: 0.0, end: 5.0).animate(_controller);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  const PiecePreview({super.key, this.piece});
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _animation,
-      builder: (context, child) {
+    if (piece == null) {
+      return const Center(
+        child: Text(
+          'Empty',
+          style: TextStyle(fontSize: 8),
+        ),
+      );
+    }
+
+    // Get the points for the piece at rotation 0 (default preview)
+    final points = tetrominoData[piece!.type]![0];
+    
+    // Find the bounds of the piece to center it
+    int minX = points.map((p) => p.x).reduce((a, b) => a < b ? a : b);
+    int maxX = points.map((p) => p.x).reduce((a, b) => a > b ? a : b);
+    int minY = points.map((p) => p.y).reduce((a, b) => a < b ? a : b);
+    int maxY = points.map((p) => p.y).reduce((a, b) => a > b ? a : b);
+    
+    // Calculate grid size
+    final gridWidth = maxX - minX + 1;
+    final gridHeight = maxY - minY + 1;
+    
+    // Calculate offset to center the piece
+    final offsetX = (4 - gridWidth) ~/ 2 - minX;
+    final offsetY = (4 - gridHeight) ~/ 2 - minY;
+
+    return GridView.builder(
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+      ),
+      itemCount: 16,
+      itemBuilder: (context, index) {
+        final x = index % 4;
+        final y = index ~/ 4;
+        
+        // Check if this cell should contain part of the piece
+        final isPiece = points.any((point) => 
+          point.x + offsetX == x && point.y + offsetY == y);
+        
         return Container(
-          width: 100,
-          height: 100,
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.white),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.blue.withOpacity(0.5),
-                blurRadius: _animation.value,
-                spreadRadius: _animation.value,
-              ),
-            ],
-          ),
-          child: widget.piece == null
-              ? const Center(child: Text('Empty'))
-              : GridView.builder(
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
-                  ),
-                  itemCount: 16,
-                  itemBuilder: (context, index) {
-                    final x = index % 4;
-                    final y = index ~/ 4;
-                    final points = tetrominoData[widget.piece!.type]!;
-                    final isPiece = points.contains(Point(x, y));
-                    return Container(
-                      color: isPiece ? widget.color : Colors.transparent,
-                    );
-                  },
-                ),
+          margin: const EdgeInsets.all(1),
+          color: isPiece ? piece!.color : Colors.transparent,
         );
       },
     );

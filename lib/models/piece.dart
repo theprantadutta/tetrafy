@@ -13,5 +13,7 @@ class Piece {
 
   Piece({required this.type, this.rotation = 0, required this.position});
 
-  // TODO: Add methods for rotation and movement
+  void rotate() {
+    rotation = (rotation + 1) % 4;
+  }
 }

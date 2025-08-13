@@ -27,6 +27,9 @@ class GameModel {
   int linesCleared = 0;
   bool isPlaying = true;
   bool isGameOver = false;
+  int linesClearedInLevel = 0; // Track lines cleared in current level
+  int linesNeededForNextLevel = 10; // Lines needed to advance to next level
+  int lastLineClearCount = 0; // Track how many lines were cleared in last clear
 
   GameModel({this.gameMode = GameMode.classic}) {
     nextPiece = Piece(type: _bagGenerator.next, position: Point(0, 0));
@@ -45,21 +48,41 @@ class GameModel {
     score = 0;
     level = 1;
     linesCleared = 0;
+    linesClearedInLevel = 0;
+    linesNeededForNextLevel = 10;
     isGameOver = false;
     isPlaying = true;
     _holdPiece = null;
     _spawnNewPiece();
   }
 
+  bool _hasHeld = false;
+  bool _linesClearedInLastMove = false; // Track if lines were cleared in the last move
+  bool _levelCompletedInLastMove = false; // Track if level was completed in the last move
+
+  // Getters to check if lines were cleared or level completed
+  bool get linesClearedInLastMove => _linesClearedInLastMove;
+  bool get levelCompletedInLastMove => _levelCompletedInLastMove;
+
+  // Reset the flags after checking them
+  void resetMoveFlags() {
+    _linesClearedInLastMove = false;
+    _levelCompletedInLastMove = false;
+  }
+
   void hold() {
+    if (_hasHeld) return; // Can only hold once per piece
+    
     if (_holdPiece == null) {
       _holdPiece = currentPiece;
       _spawnNewPiece();
     } else {
       final temp = currentPiece;
       currentPiece = _holdPiece!;
+      currentPiece.position = Point(gridWidth ~/ 2 - 1, 0);
       _holdPiece = temp;
     }
+    _hasHeld = true;
   }
 
   void _spawnNewPiece() {
@@ -70,6 +93,7 @@ class GameModel {
       isGameOver = true;
       isPlaying = false;
     }
+    _hasHeld = false; // Reset hold flag for new piece
   }
 
   void moveLeft() {
@@ -85,7 +109,13 @@ class GameModel {
   }
 
   void rotate() {
-    // TODO: Implement rotation
+    final originalRotation = currentPiece.rotation;
+    currentPiece.rotate();
+    
+    // If the rotation causes a collision, revert it
+    if (!isValidPosition(currentPiece.position)) {
+      currentPiece.rotation = originalRotation;
+    }
   }
 
   void hardDrop() {
@@ -158,22 +188,46 @@ class GameModel {
   }
 
   void _clearLines() {
+    int linesClearedNow = 0;
     for (int y = gridHeight - 1; y >= 0; y--) {
       if (grid[y].every((cell) => cell != null)) {
         linesCleared++;
+        linesClearedNow++;
         grid.removeAt(y);
         grid.insert(0, List.generate(gridWidth, (_) => null));
-        _updateScore(1);
+        // Don't decrement y since we've removed a row
+        y++; // This will be decremented by the loop, so it stays the same
       }
+    }
+    if (linesClearedNow > 0) {
+      _linesClearedInLastMove = true;
+      lastLineClearCount = linesClearedNow;
+      _updateScore(linesClearedNow);
+      _updateLevel();
     }
   }
 
   void _updateScore(int lines) {
+    // Scoring based on original Nintendo scoring system
+    int points = 0;
+    switch (lines) {
+      case 1:
+        points = 100 * level;
+        break;
+      case 2:
+        points = 300 * level;
+        break;
+      case 3:
+        points = 500 * level;
+        break;
+      case 4:
+        points = 800 * level;
+        break;
+    }
+    score += points;
+
     if (gameMode == GameMode.classic) {
-      score += lines * 100;
-      if (linesCleared >= level * 10) {
-        level++;
-      }
+      linesClearedInLevel += lines;
     } else if (gameMode == GameMode.sprint) {
       if (linesCleared >= 40) {
         isGameOver = true;
@@ -181,8 +235,35 @@ class GameModel {
       }
     } else if (gameMode == GameMode.marathon) {
       // No game over condition, just keep playing
+      linesClearedInLevel += lines;
     } else if (gameMode == GameMode.zen) {
       // No timer, no score, no levels
+    }
+  }
+
+  void _updateLevel() {
+    if (gameMode == GameMode.classic || gameMode == GameMode.marathon) {
+      // Store previous level to detect level up
+      final previousLevel = level;
+      
+      // Check if we need to level up
+      if (linesClearedInLevel >= linesNeededForNextLevel) {
+        level++;
+        linesClearedInLevel -= linesNeededForNextLevel;
+        linesNeededForNextLevel = level * 10; // Increase requirement for next level
+        
+        // For marathon mode, there's no game over, just keep leveling
+        if (gameMode == GameMode.classic && level > 15) {
+          // End game after level 15 in classic mode
+          isGameOver = true;
+          isPlaying = false;
+        }
+      }
+      
+      // Check if level increased
+      if (level > previousLevel) {
+        _levelCompletedInLastMove = true;
+      }
     }
   }
 }

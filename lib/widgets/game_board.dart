@@ -1,11 +1,4 @@
-import 'dart:io';
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
-import 'package:particles_flutter/particles_flutter.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:screenshot/screenshot.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../models/block_skin.dart';
 import '../models/game_model.dart';
@@ -26,94 +19,100 @@ class GameBoard extends StatefulWidget {
 }
 
 class _GameBoardState extends State<GameBoard> {
-  final ScreenshotController screenshotController = ScreenshotController();
+  Point<int> _getGhostPosition() {
+    Point<int> ghostPosition = widget.gameModel.currentPiece.position;
+    while (widget.gameModel.isValidPosition(
+        Point(ghostPosition.x, ghostPosition.y + 1))) {
+      ghostPosition = Point(ghostPosition.x, ghostPosition.y + 1);
+    }
+    return ghostPosition;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Screenshot(
-          controller: screenshotController,
-          child: AspectRatio(
-            aspectRatio: GameModel.gridWidth / GameModel.gridHeight,
-            child: Stack(
-              children: [
-                GridView.builder(
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: GameModel.gridWidth,
-                  ),
-                  itemCount: GameModel.gridWidth * GameModel.gridHeight,
-                  itemBuilder: (context, index) {
-                    final x = index % GameModel.gridWidth;
-                    final y = index ~/ GameModel.gridWidth;
-                    final piecePoints = widget.gameModel.getPiecePoints(
-                      widget.gameModel.currentPiece.type,
-                      widget.gameModel.currentPiece.rotation,
-                      widget.gameModel.currentPiece.position,
-                    );
-                    final isPiece = piecePoints.contains(Point(x, y));
-                    final color = isPiece
-                        ? Colors.red
-                        : widget.gameModel.grid[y][x];
-                    return AnimatedOpacity(
-                      duration: const Duration(milliseconds: 300),
-                      opacity: color == null ? 0 : 1,
-                      child: _buildBlock(color),
-                    );
-                  },
-                ),
-                if (widget.gameModel.linesCleared > 0)
-                  CircularParticle(
-                    key: UniqueKey(),
-                    awayRadius: 120,
-                    numberOfParticles: 500,
-                    speedOfParticles: 2,
-                    height: MediaQuery.of(context).size.height,
-                    width: MediaQuery.of(context).size.width,
-                    onTapAnimation: false,
-                    particleColor: Colors.white.withAlpha(200),
-                    awayAnimationDuration: const Duration(milliseconds: 400),
-                    maxParticleSize: 4,
-                    isRandomColor: true,
-                    awayAnimationCurve: Curves.fastOutSlowIn,
-                    enableHover: false,
-                    connectDots: false,
-                  ),
-              ],
-            ),
-          ),
-        ),
-        ElevatedButton(
-          onPressed: () async {
-            final Uint8List? image = await screenshotController.capture();
-            if (image != null) {
-              final directory = await getApplicationDocumentsDirectory();
-              final imagePath = await File(
-                '${directory.path}/screenshot.png',
-              ).writeAsBytes(image);
-              await Share.shareXFiles([
-                XFile(imagePath.path),
-              ], text: 'Check out my score on Tetras!');
-            }
-          },
-          child: const Text('Share Score'),
-        ),
-      ],
+    final ghostPosition = _getGhostPosition();
+    final ghostPoints = widget.gameModel.getPiecePoints(
+      widget.gameModel.currentPiece.type,
+      widget.gameModel.currentPiece.rotation,
+      ghostPosition,
+    );
+
+    return GridView.builder(
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: GameModel.gridWidth,
+      ),
+      itemCount: GameModel.gridWidth * GameModel.gridHeight,
+      itemBuilder: (context, index) {
+        final x = index % GameModel.gridWidth;
+        final y = index ~/ GameModel.gridWidth;
+        
+        // Get the current piece's points
+        final piecePoints = widget.gameModel.getPiecePoints(
+          widget.gameModel.currentPiece.type,
+          widget.gameModel.currentPiece.rotation,
+          widget.gameModel.currentPiece.position,
+        );
+        
+        // Check if the current cell is part of the active piece
+        final isPiece = piecePoints.contains(Point(x, y));
+        
+        // Check if the current cell is part of the ghost piece
+        final isGhost = ghostPoints.contains(Point(x, y));
+        
+        // Determine the color of the cell
+        Color? color;
+        if (isPiece) {
+          // Use the color of the active piece
+          color = widget.gameModel.currentPiece.color;
+        } else if (isGhost) {
+          // Use a transparent version of the piece color for the ghost
+          color = widget.gameModel.currentPiece.color.withValues(alpha: 0.3);
+        } else {
+          // Use the color from the grid (placed pieces or empty)
+          color = widget.gameModel.grid[y][x];
+        }
+        
+        return AnimatedOpacity(
+          duration: const Duration(milliseconds: 100),
+          opacity: color == null && !isGhost ? 0 : 1,
+          child: _buildBlock(color, isGhost: isGhost && !isPiece),
+        );
+      },
     );
   }
 
-  Widget _buildBlock(Color? color) {
+  Widget _buildBlock(Color? color, {bool isGhost = false}) {
+    if (color == null && !isGhost) {
+      return const SizedBox(); // Return an empty widget for empty cells
+    }
+    
+    if (isGhost) {
+      // Draw ghost piece as an outline
+      return Container(
+        margin: const EdgeInsets.all(1),
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: color ?? Colors.grey,
+            width: 2,
+          ),
+        ),
+      );
+    }
+    
     switch (widget.blockSkin) {
       case BlockSkin.flat:
-        return Container(color: color, margin: const EdgeInsets.all(1));
+        return Container(
+          margin: const EdgeInsets.all(1),
+          color: color,
+        );
       case BlockSkin.glossy:
         return Container(
           margin: const EdgeInsets.all(1),
           decoration: BoxDecoration(
             color: color,
             gradient: LinearGradient(
-              colors: [Colors.white.withOpacity(0.5), Colors.transparent],
+              colors: [Colors.white.withValues(alpha: 0.5), Colors.transparent],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),

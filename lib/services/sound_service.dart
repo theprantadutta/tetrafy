@@ -4,14 +4,30 @@ class SoundService {
   final AudioPlayer _audioPlayer = AudioPlayer();
 
   Future<void> playRotateSound() async {
-    await _audioPlayer.play(AssetSource('sounds/rotate.mp3'));
+    try {
+      await _audioPlayer.play(AssetSource('sounds/rotate.mp3'));
+    } catch (e) {
+      // Silent fail if sound file is missing
+    }
   }
 
   Future<void> playDropSound() async {
-    await _audioPlayer.play(AssetSource('sounds/drop.mp3'));
+    try {
+      await _audioPlayer.play(AssetSource('sounds/drop.mp3'));
+    } catch (e) {
+      // Silent fail if sound file is missing
+    }
   }
 
   Future<void> playLineClearSound() async {
-    await _audioPlayer.play(AssetSource('sounds/line_clear.mp3'));
+    try {
+      await _audioPlayer.play(AssetSource('sounds/line_clear.mp3'));
+    } catch (e) {
+      // Silent fail if sound file is missing
+    }
+  }
+
+  void dispose() {
+    _audioPlayer.dispose();
   }
 }
