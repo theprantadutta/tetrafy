@@ -687,7 +687,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.9),
+        color: Colors.black.withOpacity(0.7),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: theme.colorScheme.primary,
@@ -716,10 +716,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               const SizedBox(height: 24),
               Container(
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.surface.withOpacity(0.3),
+                  color: theme.colorScheme.surface.withOpacity(0.5),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: theme.colorScheme.primary.withOpacity(0.5),
+                    color: theme.colorScheme.primary.withOpacity(0.7),
                     width: 1,
                   ),
                 ),
@@ -737,53 +737,59 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 ),
               ),
               const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        _gameModel.restart();
-                      });
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: theme.colorScheme.primary,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
+                  SizedBox(
+                    width: 180,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        setState(() {
+                          _gameModel.restart();
+                        });
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: theme.colorScheme.primary,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: Text(
-                      'PLAY AGAIN',
-                      style: GoogleFonts.pressStart2p(
-                        color: theme.colorScheme.onPrimary,
-                        fontSize: 12,
+                      child: Text(
+                        'PLAY AGAIN',
+                        style: GoogleFonts.pressStart2p(
+                          color: theme.colorScheme.onPrimary,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: theme.colorScheme.secondary,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: 180,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: theme.colorScheme.secondary,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: Text(
-                      'EXIT',
-                      style: GoogleFonts.pressStart2p(
-                        color: theme.colorScheme.onSecondary,
-                        fontSize: 12,
+                      child: Text(
+                        'EXIT',
+                        style: GoogleFonts.pressStart2p(
+                          color: theme.colorScheme.onSecondary,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   ),
@@ -801,19 +807,26 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: GoogleFonts.pressStart2p(
-            color: theme.colorScheme.onSurface.withOpacity(0.7),
-            fontSize: 12,
+        Expanded(
+          flex: 2,
+          child: Text(
+            label,
+            style: GoogleFonts.pressStart2p(
+              color: theme.colorScheme.onSurface.withOpacity(0.9),
+              fontSize: 12,
+            ),
           ),
         ),
-        Text(
-          value,
-          style: GoogleFonts.pressStart2p(
-            color: theme.colorScheme.primary,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
+        Expanded(
+          flex: 1,
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: GoogleFonts.pressStart2p(
+              color: theme.colorScheme.primary,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
       ],
@@ -824,7 +837,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.85),
+        color: Colors.black.withOpacity(0.7),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: theme.colorScheme.primary,
@@ -853,10 +866,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               const SizedBox(height: 24),
               Container(
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.surface.withOpacity(0.3),
+                  color: theme.colorScheme.surface.withOpacity(0.5),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: theme.colorScheme.secondary.withOpacity(0.5),
+                    color: theme.colorScheme.secondary.withOpacity(0.7),
                     width: 1,
                   ),
                 ),
@@ -872,11 +885,32 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 ),
               ),
               const SizedBox(height: 24),
-              Text(
-                'Press P to resume',
-                style: GoogleFonts.pressStart2p(
-                  fontSize: 10,
-                  color: theme.colorScheme.onSurface.withOpacity(0.7),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: 180,
+                child: ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _gameModel.togglePause();
+                    });
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.colorScheme.primary,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: Text(
+                    'RESUME',
+                    style: GoogleFonts.pressStart2p(
+                      color: theme.colorScheme.onPrimary,
+                      fontSize: 12,
+                    ),
+                  ),
                 ),
               ),
             ],

@@ -3,7 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../models/game_mode.dart';
 import '../widgets/particle_background.dart';
+import 'game_modes_screen.dart';
 import 'game_screen.dart';
+import 'how_to_play_screen.dart';
 import 'stats_screen.dart';
 
 class ModeSelectionScreen extends StatelessWidget {
@@ -98,7 +100,79 @@ class ModeSelectionScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 20),
+                  // How to Play button
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: SizedBox(
+                      width: 240,
+                      height: 55,
+                      child: OutlinedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const HowToPlayScreen(),
+                            ),
+                          );
+                        },
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                            width: 3,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          backgroundColor: theme.colorScheme.surface.withValues(alpha: 0.3),
+                        ),
+                        child: Text(
+                          'HOW TO PLAY',
+                          style: GoogleFonts.pressStart2p(
+                            color: theme.colorScheme.onSurface,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  // Game Modes button
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: SizedBox(
+                      width: 240,
+                      height: 55,
+                      child: OutlinedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const GameModesScreen(),
+                            ),
+                          );
+                        },
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                            width: 3,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          backgroundColor: theme.colorScheme.surface.withValues(alpha: 0.3),
+                        ),
+                        child: Text(
+                          'GAME MODES',
+                          style: GoogleFonts.pressStart2p(
+                            color: theme.colorScheme.onSurface,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
                   // Stats button
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8.0),
