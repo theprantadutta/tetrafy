@@ -530,22 +530,42 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     final theme = Theme.of(context);
     final isScore = label == 'SCORE';
     
-    return Flexible(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            label,
-            style: GoogleFonts.pressStart2p(
-              color: theme.colorScheme.onSurface.withOpacity(0.7),
-              fontSize: 8,
-            ),
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.pressStart2p(
+            color: theme.colorScheme.onSurface.withOpacity(0.7),
+            fontSize: 8,
           ),
-          const SizedBox(height: 4),
-          isScore
-              ? ScaleTransition(
-                  scale: _scoreAnimation,
-                  child: Text(
+        ),
+        const SizedBox(height: 4),
+        isScore
+            ? ScaleTransition(
+                scale: _scoreAnimation,
+                child: Text(
+                  value,
+                  style: GoogleFonts.pressStart2p(
+                    color: theme.colorScheme.primary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              )
+            : isLevel
+                ? ScaleTransition(
+                    scale: _levelAnimation,
+                    child: Text(
+                      value,
+                      style: GoogleFonts.pressStart2p(
+                        color: theme.colorScheme.secondary,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  )
+                : Text(
                     value,
                     style: GoogleFonts.pressStart2p(
                       color: theme.colorScheme.primary,
@@ -553,29 +573,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                )
-              : isLevel
-                  ? ScaleTransition(
-                      scale: _levelAnimation,
-                      child: Text(
-                        value,
-                        style: GoogleFonts.pressStart2p(
-                          color: theme.colorScheme.secondary,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    )
-                  : Text(
-                      value,
-                      style: GoogleFonts.pressStart2p(
-                        color: theme.colorScheme.primary,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-        ],
-      ),
+      ],
     );
   }
 
