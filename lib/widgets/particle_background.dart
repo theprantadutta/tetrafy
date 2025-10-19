@@ -1,55 +1,33 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
+import 'dart:ui' as ui;
 
-class Particle {
-  Offset position;
-  Offset velocity;
-  double size;
-  Color color;
-
-  Particle({
-    required this.position,
-    required this.velocity,
-    required this.size,
-    required this.color,
-  });
-}
-
+/// A beautiful particle background with colorful flowing particles
 class ParticleBackground extends StatefulWidget {
-  final List<Color> particleColors;
-  final int numberOfParticles;
-
-  const ParticleBackground({
-    super.key,
-    this.particleColors = const [
-      Color(0xFF00BCD4), // Cyan
-      Color(0xFF2196F3), // Blue
-      Color(0xFF4CAF50), // Green
-      Color(0xFFFFEB3B), // Yellow
-      Color(0xFFF44336), // Red
-      Color(0xFF9C27B0), // Purple
-    ],
-    this.numberOfParticles = 50,
-  });
+  const ParticleBackground({super.key});
 
   @override
   State<ParticleBackground> createState() => _ParticleBackgroundState();
 }
 
 class _ParticleBackgroundState extends State<ParticleBackground>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  List<Particle> _particles = [];
-  final Random _random = Random();
+  late List<Particle> particles;
+  late DateTime startTime;
 
   @override
   void initState() {
     super.initState();
+    startTime = DateTime.now();
+
     _controller = AnimationController(
-      duration: const Duration(seconds: 10),
+      duration: const Duration(milliseconds: 16), // ~60 FPS
       vsync: this,
     )..repeat();
-    _controller.addListener(_updateParticles);
+
+    // Create 50 particles for better performance
+    particles = List.generate(50, (index) => Particle());
   }
 
   @override
@@ -58,72 +36,197 @@ class _ParticleBackgroundState extends State<ParticleBackground>
     super.dispose();
   }
 
-  void _initializeParticles(Size size) {
-    _particles = List.generate(widget.numberOfParticles, (index) {
-      return Particle(
-        position: Offset(
-          _random.nextDouble() * size.width,
-          _random.nextDouble() * size.height,
-        ),
-        velocity: Offset(
-          (_random.nextDouble() - 0.5) * 2,
-          (_random.nextDouble() - 0.5) * 2,
-        ),
-        size: _random.nextDouble() * 4 + 1,
-        color: widget.particleColors[
-            _random.nextInt(widget.particleColors.length)],
-      );
-    });
-  }
-
-  void _updateParticles() {
-    final size = MediaQuery.of(context).size;
-    if (_particles.isEmpty) {
-      _initializeParticles(size);
-    }
-
-    setState(() {
-      for (final particle in _particles) {
-        particle.position = Offset(
-          particle.position.dx + particle.velocity.dx,
-          particle.position.dy + particle.velocity.dy,
-        );
-
-        // Bounce off edges
-        if (particle.position.dx <= 0 || particle.position.dx >= size.width) {
-          particle.velocity = Offset(-particle.velocity.dx, particle.velocity.dy);
-        }
-        if (particle.position.dy <= 0 || particle.position.dy >= size.height) {
-          particle.velocity = Offset(particle.velocity.dx, -particle.velocity.dy);
-        }
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Theme.of(context).colorScheme.surface,
-      child: CustomPaint(
-        painter: _ParticlePainter(_particles),
-        child: const SizedBox.expand(),
-      ),
+    final theme = Theme.of(context);
+
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        // Calculate continuous time in seconds (never resets)
+        final elapsedSeconds = DateTime.now().difference(startTime).inMilliseconds / 1000.0;
+
+        return CustomPaint(
+          painter: ParticlePainter(
+            time: elapsedSeconds,
+            particles: particles,
+            backgroundColor: theme.colorScheme.surface,
+            primaryColor: theme.colorScheme.primary,
+            secondaryColor: theme.colorScheme.secondary,
+            tertiaryColor: theme.colorScheme.tertiary,
+          ),
+          child: const SizedBox.expand(),
+        );
+      },
     );
   }
 }
 
-class _ParticlePainter extends CustomPainter {
-  final List<Particle> particles;
+class Particle {
+  final double startX;
+  final double startY;
+  final double size;
+  final double speedX;
+  final double speedY;
+  final double wobbleSpeed;
+  final double wobbleAmount;
+  final int colorIndex;
+  final double pulseOffset;
 
-  _ParticlePainter(this.particles);
+  Particle()
+      : startX = math.Random().nextDouble(),
+        startY = math.Random().nextDouble(),
+        size = math.Random().nextDouble() * 5 + 3,
+        speedX = (math.Random().nextDouble() - 0.5) * 0.03,
+        speedY = (math.Random().nextDouble() - 0.5) * 0.03,
+        wobbleSpeed = math.Random().nextDouble() * 0.4 + 0.2,
+        wobbleAmount = math.Random().nextDouble() * 20 + 10,
+        colorIndex = math.Random().nextInt(3),
+        pulseOffset = math.Random().nextDouble() * math.pi * 2;
+}
+
+class ParticlePainter extends CustomPainter {
+  final double time;
+  final List<Particle> particles;
+  final Color backgroundColor;
+  final Color primaryColor;
+  final Color secondaryColor;
+  final Color tertiaryColor;
+
+  ParticlePainter({
+    required this.time,
+    required this.particles,
+    required this.backgroundColor,
+    required this.primaryColor,
+    required this.secondaryColor,
+    required this.tertiaryColor,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..style = PaintingStyle.fill;
+    // Draw gradient background
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    final gradientPaint = Paint()
+      ..shader = ui.Gradient.radial(
+        Offset(size.width * 0.65, size.height * 0.3),
+        size.width * 0.6,
+        [
+          Color.lerp(backgroundColor, primaryColor, 0.12)!,
+          backgroundColor,
+          Color.lerp(backgroundColor, secondaryColor, 0.08)!,
+        ],
+        [0.0, 0.5, 1.0],
+      );
 
-    for (final particle in particles) {
-      paint.color = particle.color.withValues(alpha: 0.7);
-      canvas.drawCircle(particle.position, particle.size, paint);
+    canvas.drawRect(rect, gradientPaint);
+
+    // Pre-calculate color array for faster lookup
+    final colors = [primaryColor, secondaryColor, tertiaryColor];
+
+    // Pre-calculate time-based values (continuous, never resets)
+    final timePi2 = time * 2 * math.pi;
+    final timePi3 = time * 3 * math.pi;
+
+    // Draw particles in single loop
+    for (int i = 0; i < particles.length; i++) {
+      final particle = particles[i];
+
+      // Calculate position with continuous movement (never jumps)
+      final baseX = particle.startX + (time * particle.speedX);
+      final baseY = particle.startY + (time * particle.speedY);
+
+      // Add wobble effect
+      final wobblePhase = timePi2 * particle.wobbleSpeed;
+      final wobbleX = math.sin(wobblePhase) * particle.wobbleAmount;
+      final wobbleY = math.cos(wobblePhase) * particle.wobbleAmount;
+
+      // Wrap around screen edges smoothly
+      final wrappedX = (baseX % 1.0 + 1.0) % 1.0;
+      final wrappedY = (baseY % 1.0 + 1.0) % 1.0;
+
+      final x = wrappedX * size.width + wobbleX;
+      final y = wrappedY * size.height + wobbleY;
+
+      // Get color from pre-calculated array
+      final particleColor = colors[particle.colorIndex];
+
+      // Calculate pulse (optimized)
+      final pulse = (math.sin(timePi3 + particle.pulseOffset) + 1) * 0.5;
+      final alpha = 0.4 + pulse * 0.3;
+
+      final offset = Offset(x, y);
+
+      // Draw outer glow (single layer, optimized blur)
+      canvas.drawCircle(
+        offset,
+        particle.size * 2,
+        Paint()
+          ..color = particleColor.withValues(alpha: alpha * 0.15)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+      );
+
+      // Draw main particle with gradient
+      canvas.drawCircle(
+        offset,
+        particle.size,
+        Paint()
+          ..shader = ui.Gradient.radial(
+            offset,
+            particle.size,
+            [
+              particleColor.withValues(alpha: alpha),
+              particleColor.withValues(alpha: alpha * 0.6),
+            ],
+          ),
+      );
+    }
+
+    // Draw fewer connecting lines with optimized distance check
+    final maxConnections = 3; // Limit connections per particle
+    for (int i = 0; i < particles.length; i++) {
+      int connections = 0;
+      final p1 = particles[i];
+
+      // Calculate p1 position
+      final baseX1 = p1.startX + (time * p1.speedX);
+      final baseY1 = p1.startY + (time * p1.speedY);
+      final wobblePhase1 = timePi2 * p1.wobbleSpeed;
+      final wrappedX1 = (baseX1 % 1.0 + 1.0) % 1.0;
+      final wrappedY1 = (baseY1 % 1.0 + 1.0) % 1.0;
+      final x1 = wrappedX1 * size.width + math.sin(wobblePhase1) * p1.wobbleAmount;
+      final y1 = wrappedY1 * size.height + math.cos(wobblePhase1) * p1.wobbleAmount;
+
+      for (int j = i + 1; j < particles.length && connections < maxConnections; j++) {
+        final p2 = particles[j];
+
+        // Calculate p2 position
+        final baseX2 = p2.startX + (time * p2.speedX);
+        final baseY2 = p2.startY + (time * p2.speedY);
+        final wobblePhase2 = timePi2 * p2.wobbleSpeed;
+        final wrappedX2 = (baseX2 % 1.0 + 1.0) % 1.0;
+        final wrappedY2 = (baseY2 % 1.0 + 1.0) % 1.0;
+        final x2 = wrappedX2 * size.width + math.sin(wobblePhase2) * p2.wobbleAmount;
+        final y2 = wrappedY2 * size.height + math.cos(wobblePhase2) * p2.wobbleAmount;
+
+        final dx = x2 - x1;
+        final dy = y2 - y1;
+        final distanceSquared = dx * dx + dy * dy;
+
+        // Use squared distance to avoid expensive sqrt
+        if (distanceSquared < 10000) { // 100^2
+          final distance = math.sqrt(distanceSquared);
+          final alpha = (1 - distance / 100) * 0.12;
+
+          canvas.drawLine(
+            Offset(x1, y1),
+            Offset(x2, y2),
+            Paint()
+              ..color = primaryColor.withValues(alpha: alpha)
+              ..strokeWidth = 0.8,
+          );
+          connections++;
+        }
+      }
     }
   }
 

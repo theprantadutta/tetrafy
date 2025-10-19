@@ -1,1 +1,1 @@
-enum BlockSkin { flat, glossy, pixelArt }
+enum BlockSkin { flat, glossy, pixelArt, neon, holographic, crystal, gem, glass }

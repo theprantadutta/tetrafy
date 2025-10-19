@@ -37,13 +37,19 @@ class _GameBoardState extends State<GameBoard> {
       ghostPosition,
     );
 
-    return GridView.builder(
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: GameModel.gridWidth,
-      ),
-      itemCount: GameModel.gridWidth * GameModel.gridHeight,
-      itemBuilder: (context, index) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return GridView.builder(
+          physics: const NeverScrollableScrollPhysics(),
+          padding: EdgeInsets.zero,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: GameModel.gridWidth,
+            childAspectRatio: 1.0,
+            crossAxisSpacing: 0,
+            mainAxisSpacing: 0,
+          ),
+          itemCount: GameModel.gridWidth * GameModel.gridHeight,
+          itemBuilder: (context, index) {
         final x = index % GameModel.gridWidth;
         final y = index ~/ GameModel.gridWidth;
         
@@ -73,10 +79,12 @@ class _GameBoardState extends State<GameBoard> {
           color = widget.gameModel.grid[y][x];
         }
         
-        return AnimatedOpacity(
-          duration: const Duration(milliseconds: 100),
-          opacity: color == null && !isGhost ? 0 : 1,
-          child: _buildBlock(color, isGhost: isGhost && !isPiece),
+            return AnimatedOpacity(
+              duration: const Duration(milliseconds: 100),
+              opacity: color == null && !isGhost ? 0 : 1,
+              child: _buildBlock(color, isGhost: isGhost && !isPiece),
+            );
+          },
         );
       },
     );
@@ -86,26 +94,68 @@ class _GameBoardState extends State<GameBoard> {
     if (color == null && !isGhost) {
       return const SizedBox(); // Return an empty widget for empty cells
     }
-    
+
     if (isGhost) {
-      // Draw ghost piece as an outline
+      // Draw ghost piece with animated glow outline
       return Container(
-        margin: const EdgeInsets.all(1),
+        margin: const EdgeInsets.all(1.2),
         decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(2),
           border: Border.all(
-            color: color ?? Colors.grey,
+            color: (color ?? Colors.grey).withValues(alpha: 0.6),
             width: 2,
           ),
+          // Subtle fill for better visibility
+          color: (color ?? Colors.grey).withValues(alpha: 0.08),
+          boxShadow: [
+            BoxShadow(
+              color: (color ?? Colors.grey).withValues(alpha: 0.3),
+              blurRadius: 3,
+              spreadRadius: 0.5,
+            ),
+          ],
         ),
       );
     }
-    
+
     switch (widget.blockSkin) {
       case BlockSkin.flat:
         return Container(
-          margin: const EdgeInsets.all(1),
-          color: color,
+          margin: const EdgeInsets.all(1.2),
+          decoration: BoxDecoration(
+            // Brighten the color slightly
+            color: color,
+            borderRadius: BorderRadius.circular(2),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.15),
+              width: 1,
+            ),
+            boxShadow: [
+              // Stronger glow for visibility
+              BoxShadow(
+                color: (color ?? Colors.white).withValues(alpha: 0.5),
+                blurRadius: 4,
+                spreadRadius: 1,
+              ),
+              // Inner highlight
+              BoxShadow(
+                color: Colors.white.withValues(alpha: 0.2),
+                blurRadius: 1,
+                spreadRadius: -0.5,
+              ),
+            ],
+            // Add subtle gradient for depth
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                (color ?? Colors.white).withValues(alpha: 1.0),
+                (color ?? Colors.white).withValues(alpha: 0.85),
+              ],
+            ),
+          ),
         );
+
       case BlockSkin.glossy:
         return Container(
           margin: const EdgeInsets.all(1),
@@ -118,12 +168,127 @@ class _GameBoardState extends State<GameBoard> {
             ),
           ),
         );
+
       case BlockSkin.pixelArt:
         return Container(
           margin: const EdgeInsets.all(1),
           decoration: BoxDecoration(
             color: color,
             border: Border.all(color: Colors.black, width: 2),
+          ),
+        );
+
+      case BlockSkin.neon:
+        return Container(
+          margin: const EdgeInsets.all(1),
+          decoration: BoxDecoration(
+            color: color?.withValues(alpha: 0.3),
+            border: Border.all(
+              color: color ?? Colors.white,
+              width: 2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: color?.withValues(alpha: 0.8) ?? Colors.white,
+                blurRadius: 8,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+        );
+
+      case BlockSkin.holographic:
+        return Container(
+          margin: const EdgeInsets.all(1),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                color ?? Colors.white,
+                color?.withValues(alpha: 0.5) ?? Colors.white,
+                Colors.white.withValues(alpha: 0.3),
+                color ?? Colors.white,
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.5),
+              width: 1,
+            ),
+          ),
+        );
+
+      case BlockSkin.crystal:
+        return Container(
+          margin: const EdgeInsets.all(1),
+          decoration: BoxDecoration(
+            color: color,
+            gradient: LinearGradient(
+              colors: [
+                Colors.white.withValues(alpha: 0.6),
+                (color ?? Colors.white).withValues(alpha: 0.8),
+                color ?? Colors.white,
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.7),
+              width: 2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: (color ?? Colors.white).withValues(alpha: 0.3),
+                blurRadius: 4,
+                offset: const Offset(2, 2),
+              ),
+            ],
+          ),
+        );
+
+      case BlockSkin.gem:
+        return Container(
+          margin: const EdgeInsets.all(1),
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              colors: [
+                Colors.white.withValues(alpha: 0.8),
+                color ?? Colors.white,
+                (color ?? Colors.white).withValues(alpha: 0.6),
+              ],
+              center: const Alignment(-0.3, -0.3),
+            ),
+            border: Border.all(
+              color: (color ?? Colors.white).withValues(alpha: 0.8),
+              width: 2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: (color ?? Colors.white).withValues(alpha: 0.5),
+                blurRadius: 6,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+        );
+
+      case BlockSkin.glass:
+        return Container(
+          margin: const EdgeInsets.all(1),
+          decoration: BoxDecoration(
+            color: (color ?? Colors.white).withValues(alpha: 0.2),
+            gradient: LinearGradient(
+              colors: [
+                Colors.white.withValues(alpha: 0.4),
+                (color ?? Colors.white).withValues(alpha: 0.1),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            border: Border.all(
+              color: (color ?? Colors.white).withValues(alpha: 0.4),
+              width: 1.5,
+            ),
           ),
         );
     }

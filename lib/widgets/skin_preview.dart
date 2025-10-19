@@ -53,6 +53,16 @@ class SkinPreview extends StatelessWidget {
         return Colors.red;
       case BlockSkin.pixelArt:
         return Colors.green;
+      case BlockSkin.neon:
+        return Colors.purple;
+      case BlockSkin.holographic:
+        return Colors.cyan;
+      case BlockSkin.crystal:
+        return Colors.lightBlue;
+      case BlockSkin.gem:
+        return Colors.pink;
+      case BlockSkin.glass:
+        return Colors.teal;
     }
   }
 }
