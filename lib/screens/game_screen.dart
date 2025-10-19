@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:confetti/confetti.dart';
 
 import '../main.dart';
 import '../models/block_skin.dart';
+import '../models/difficulty_tier.dart';
 import '../models/game_mode.dart';
 import '../models/game_model.dart';
 import '../models/player_profile.dart';
@@ -16,9 +18,7 @@ import '../services/sound_service.dart';
 import '../widgets/game_board.dart';
 import '../widgets/piece_preview.dart';
 import '../widgets/particle_background.dart';
-import '../widgets/glass_card.dart';
 import '../widgets/glass_button.dart';
-import '../widgets/gradient_text.dart';
 
 class GameScreen extends StatefulWidget {
   final GameMode gameMode;
@@ -48,6 +48,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   late ConfettiController _levelUpConfettiController;
   Timer? _gameTimer;
   int _combo = 0;
+  int _currentGameSpeed = 500; // Track current game speed
+  bool _showRotationLimitWarning = false; // Show warning when rotation limit reached
+  bool _showPreviewRemovedWarning = false; // Show warning when preview is removed
+  DifficultyTier? _lastDifficultyTier; // Track tier changes
 
   @override
   void initState() {
@@ -94,8 +98,17 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _confettiController = ConfettiController(duration: const Duration(seconds: 1));
     _levelUpConfettiController = ConfettiController(duration: const Duration(seconds: 2));
 
+    _lastDifficultyTier = _gameModel.currentDifficultyTier;
+
     if (widget.gameMode != GameMode.zen) {
-      _gameTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
+      _currentGameSpeed = calculateGameSpeed(_gameModel.level);
+      _startGameTimer();
+    }
+  }
+
+  void _startGameTimer() {
+    _gameTimer?.cancel();
+    _gameTimer = Timer.periodic(Duration(milliseconds: _currentGameSpeed), (timer) {
         if (!mounted) {
           timer.cancel();
           return;
@@ -115,6 +128,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
           if (_gameModel.levelCompletedInLastMove && !levelCompletedBefore) {
             _handleLevelUp();
+            // Update game speed for new level
+            _updateGameSpeed();
+            // Check for tier change
+            _checkTierChange();
           }
 
           _gameModel.resetMoveFlags();
@@ -122,14 +139,73 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         if (_gameModel.isGameOver) {
           _updateHighScore();
           _profileService.addXp(_profile, _gameModel.score);
-          _preferencesService.incrementLinesCleared(_gameModel.linesCleared);
-          _preferencesService.incrementBlocksDropped();
-          _preferencesService.updateTotalTimePlayed(
-            const Duration(milliseconds: 500),
+
+          // Record full game session with all statistics
+          final sessionDuration = _gameModel.sessionStartTime != null
+              ? DateTime.now().difference(_gameModel.sessionStartTime!)
+              : Duration.zero;
+
+          _preferencesService.recordGameSession(
+            mode: widget.gameMode.toString().split('.').last,
+            score: _gameModel.score,
+            level: _gameModel.level,
+            linesCleared: _gameModel.linesCleared,
+            blocksDropped: _gameModel.sessionBlocksDropped,
+            timePlayed: sessionDuration,
+            perfectClears: _gameModel.sessionPerfectClears,
+            maxCombo: _gameModel.sessionMaxCombo,
           );
         }
       });
+  }
+
+  void _updateGameSpeed() {
+    final newSpeed = calculateGameSpeed(_gameModel.level);
+    if (newSpeed != _currentGameSpeed) {
+      _currentGameSpeed = newSpeed;
+      // Restart timer with new speed
+      if (widget.gameMode != GameMode.zen && !_gameModel.isGameOver) {
+        _startGameTimer();
+      }
     }
+  }
+
+  void _checkTierChange() {
+    final currentTier = _gameModel.currentDifficultyTier;
+    if (_lastDifficultyTier != currentTier) {
+      _lastDifficultyTier = currentTier;
+      // Show tier change celebration
+      _levelUpConfettiController.play();
+
+      // Check if preview should be hidden now
+      if (!_gameModel.shouldShowNextPiece && !_showPreviewRemovedWarning) {
+        _showPreviewRemovedWarning = true;
+        _showTierChangeNotification('Preview removed! Expert mode activated.');
+      } else if (currentTier == DifficultyTier.hard) {
+        _showTierChangeNotification('Garbage rows incoming! Hard mode activated.');
+      } else if (currentTier == DifficultyTier.insane) {
+        _showTierChangeNotification('Rotation limited! Insane mode activated.');
+      }
+    }
+  }
+
+  void _showTierChangeNotification(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            color: Colors.white,
+          ),
+        ),
+        backgroundColor: Theme.of(context).colorScheme.error,
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
@@ -211,10 +287,24 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       } else if (key == LogicalKeyboardKey.arrowRight) {
         setState(() => _gameModel.moveRight());
       } else if (key == LogicalKeyboardKey.arrowUp) {
-        setState(() {
-          _gameModel.rotate();
-          _soundService.playRotateSound();
-        });
+        if (_gameModel.hasReachedRotationLimit) {
+          // Show warning
+          setState(() {
+            _showRotationLimitWarning = true;
+          });
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              setState(() {
+                _showRotationLimitWarning = false;
+              });
+            }
+          });
+        } else {
+          setState(() {
+            _gameModel.rotate();
+            _soundService.playRotateSound();
+          });
+        }
       } else if (key == LogicalKeyboardKey.arrowDown) {
         setState(() {
           _gameModel.moveDown();
@@ -268,36 +358,39 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                     _handleKeyPress(event.logicalKey);
                   }
                 },
-                child: SafeArea(
-                  child: Stack(
-                    children: [
-                      // Main game area - "Vertical Core" Mobile Layout
-                      Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: OrientationBuilder(
-                          builder: (context, orientation) {
-                            if (orientation == Orientation.portrait) {
-                              return _buildPortraitLayout(theme);
-                            } else {
-                              return _buildLandscapeLayout(theme);
-                            }
-                          },
-                        ),
-                      ),
+                child: Stack(
+                  children: [
+                    // SafeArea wrapper for game content only
+                    SafeArea(
+                      child: Stack(
+                        children: [
+                          // Main game area - "Vertical Core" Mobile Layout
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: OrientationBuilder(
+                              builder: (context, orientation) {
+                                if (orientation == Orientation.portrait) {
+                                  return _buildPortraitLayout(theme);
+                                } else {
+                                  return _buildLandscapeLayout(theme);
+                                }
+                              },
+                            ),
+                          ),
 
-                      // Confetti effects
-                      Align(
-                        alignment: Alignment.topCenter,
-                        child: ConfettiWidget(
-                          confettiController: _confettiController,
-                          blastDirectionality: BlastDirectionality.explosive,
-                          shouldLoop: false,
-                          emissionFrequency: 0.01,
-                          numberOfParticles: 50,
-                          maxBlastForce: 100,
-                          minBlastForce: 80,
-                          gravity: 0.3,
-                          colors: [
+                          // Confetti effects
+                          Align(
+                            alignment: Alignment.topCenter,
+                            child: ConfettiWidget(
+                              confettiController: _confettiController,
+                              blastDirectionality: BlastDirectionality.explosive,
+                              shouldLoop: false,
+                              emissionFrequency: 0.01,
+                              numberOfParticles: 50,
+                              maxBlastForce: 100,
+                              minBlastForce: 80,
+                              gravity: 0.3,
+                              colors: [
                             theme.colorScheme.primary,
                             theme.colorScheme.secondary,
                             theme.colorScheme.tertiary,
@@ -322,6 +415,47 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                           ],
                         ),
                       ),
+
+                      // Rotation limit warning
+                      if (_showRotationLimitWarning)
+                        Positioned(
+                          top: MediaQuery.of(context).size.height * 0.25,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.error,
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: theme.colorScheme.error.withValues(alpha: 0.6),
+                                    blurRadius: 20,
+                                    spreadRadius: 5,
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.block, color: Colors.white, size: 20),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'ROTATION LIMIT REACHED!',
+                                    style: theme.textTheme.titleMedium?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
 
                       // Combo indicator
                       if (_combo > 1 && _gameModel.isPlaying)
@@ -370,18 +504,20 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                             ),
                           ),
                         ),
+                        ],
+                      ),
+                    ),
 
-                      // Full screen overlays
-                      if (_gameModel.isGameOver)
-                        Positioned.fill(
-                          child: _buildGameOverOverlay(theme),
-                        ),
-                      if (!_gameModel.isPlaying && !_gameModel.isGameOver)
-                        Positioned.fill(
-                          child: _buildPausedOverlay(theme),
-                        ),
-                    ],
-                  ),
+                    // Full screen overlays - OUTSIDE SafeArea for true full screen
+                    if (_gameModel.isGameOver)
+                      Positioned.fill(
+                        child: _buildGameOverOverlay(theme),
+                      ),
+                    if (!_gameModel.isPlaying && !_gameModel.isGameOver)
+                      Positioned.fill(
+                        child: _buildPausedOverlay(theme),
+                      ),
+                  ],
                 ),
               ),
             ],
@@ -392,271 +528,750 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildGameOverOverlay(ThemeData theme) {
-    return BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.85),
-        ),
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 400),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Animated icon
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [
-                          theme.colorScheme.error,
-                          theme.colorScheme.error.withValues(alpha: 0.5),
-                        ],
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: theme.colorScheme.error.withValues(alpha: 0.5),
-                          blurRadius: 20,
-                          spreadRadius: 5,
-                        ),
+    final isNewHighScore = _gameModel.score > _highScore;
+
+    return TweenAnimationBuilder<double>(
+      duration: const Duration(milliseconds: 600),
+      tween: Tween(begin: 0.0, end: 1.0),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Stack(
+          children: [
+            // Dramatic blur and darken effect - FULL SCREEN
+            Positioned.fill(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(
+                  sigmaX: 15 * value,
+                  sigmaY: 15 * value,
+                ),
+                child: Container(
+                  width: double.infinity,
+                  height: double.infinity,
+                  decoration: BoxDecoration(
+                    gradient: RadialGradient(
+                      center: Alignment.center,
+                      radius: 1.5,
+                      colors: [
+                        theme.colorScheme.error.withValues(alpha: 0.15 * value),
+                        Colors.black.withValues(alpha: 0.9 * value),
                       ],
                     ),
-                    child: Icon(
-                      Icons.sentiment_very_dissatisfied,
-                      size: 48,
-                      color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+
+            // Animated "shattered" effect particles
+            ...List.generate(20, (index) {
+              final angle = (index * 18.0) * (3.14159 / 180);
+              final distance = 100 + (index * 30);
+              final xOffset = distance * cos(angle) * value;
+              final yOffset = distance * sin(angle) * value;
+
+              return Positioned(
+                left: MediaQuery.of(context).size.width / 2 + xOffset - 10,
+                top: MediaQuery.of(context).size.height / 2 + yOffset - 10,
+                child: Opacity(
+                  opacity: (1.0 - value) * 0.6,
+                  child: Transform.rotate(
+                    angle: value * 6.28 + index,
+                    child: Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.error.withValues(alpha: 0.8),
+                        borderRadius: BorderRadius.circular(2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: theme.colorScheme.error.withValues(alpha: 0.6),
+                            blurRadius: 8,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
+                ),
+              );
+            }),
 
-                  const SizedBox(height: 16),
-
-                  GradientText(
-                    text: 'GAME OVER',
-                    style: theme.textTheme.headlineMedium,
-                    gradientColors: [
-                      theme.colorScheme.error,
-                      theme.colorScheme.error.withValues(alpha: 0.7),
-                    ],
-                    showGlow: true,
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Stats
-                  GlassCard(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        _buildOverlayStat(theme, 'SCORE', _gameModel.score.toString(), Icons.emoji_events),
-                        const SizedBox(height: 12),
-                        _buildOverlayStat(theme, 'LINES', _gameModel.linesCleared.toString(), Icons.horizontal_rule),
-                        const SizedBox(height: 12),
-                        _buildOverlayStat(theme, 'LEVEL', _gameModel.level.toString(), Icons.trending_up),
-                        if (_gameModel.score > _highScore) ...[
-                          const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  theme.colorScheme.tertiary.withValues(alpha: 0.3),
-                                  theme.colorScheme.primary.withValues(alpha: 0.3),
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(20),
+            // Main content with dramatic entrance
+            Center(
+              child: Transform.scale(
+                scale: 0.5 + (0.5 * value),
+                child: Transform.rotate(
+                  angle: (1.0 - value) * 0.1,
+                  child: Opacity(
+                    opacity: value,
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 450),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Dramatic skull/sad icon with shake effect
+                            TweenAnimationBuilder<double>(
+                              duration: const Duration(milliseconds: 800),
+                              tween: Tween(begin: -0.05, end: 0.05),
+                              curve: Curves.easeInOut,
+                              builder: (context, shakeValue, child) {
+                                return Transform.rotate(
+                                  angle: shakeValue,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(24),
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      gradient: RadialGradient(
+                                        colors: [
+                                          theme.colorScheme.error,
+                                          theme.colorScheme.error.withValues(alpha: 0.6),
+                                          Colors.red.shade900,
+                                        ],
+                                        stops: const [0.0, 0.5, 1.0],
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: theme.colorScheme.error.withValues(alpha: 0.8),
+                                          blurRadius: 40,
+                                          spreadRadius: 10,
+                                        ),
+                                        BoxShadow(
+                                          color: Colors.red.withValues(alpha: 0.5),
+                                          blurRadius: 60,
+                                          spreadRadius: 20,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Icon(
+                                      Icons.warning_amber_rounded,
+                                      size: 64,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                );
+                              },
+                              onEnd: () {
+                                setState(() {});
+                              },
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
+
+                            const SizedBox(height: 24),
+
+                            // Dramatic "GAME OVER" text with glitch effect
+                            Stack(
                               children: [
-                                Icon(
-                                  Icons.new_releases,
-                                  color: theme.colorScheme.tertiary,
-                                  size: 16,
+                                // Red glitch layer
+                                Transform.translate(
+                                  offset: Offset(-2 * (1 - value), 0),
+                                  child: Opacity(
+                                    opacity: 0.7,
+                                    child: Text(
+                                      'GAME OVER',
+                                      style: theme.textTheme.headlineLarge?.copyWith(
+                                        color: Colors.red,
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 52,
+                                        letterSpacing: 6,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
                                 ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'NEW HIGH SCORE!',
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: theme.colorScheme.tertiary,
-                                    fontWeight: FontWeight.bold,
+                                // Blue glitch layer
+                                Transform.translate(
+                                  offset: Offset(2 * (1 - value), 0),
+                                  child: Opacity(
+                                    opacity: 0.7,
+                                    child: Text(
+                                      'GAME OVER',
+                                      style: theme.textTheme.headlineLarge?.copyWith(
+                                        color: Colors.cyan,
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 52,
+                                        letterSpacing: 6,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                ),
+                                // Main text
+                                ShaderMask(
+                                  shaderCallback: (bounds) {
+                                    return LinearGradient(
+                                      colors: [
+                                        Colors.white,
+                                        theme.colorScheme.error,
+                                        Colors.red.shade900,
+                                        theme.colorScheme.error,
+                                        Colors.white,
+                                      ],
+                                      stops: const [0.0, 0.25, 0.5, 0.75, 1.0],
+                                    ).createShader(bounds);
+                                  },
+                                  child: Text(
+                                    'GAME OVER',
+                                    style: theme.textTheme.headlineLarge?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 52,
+                                      letterSpacing: 6,
+                                      shadows: [
+                                        Shadow(
+                                          color: theme.colorScheme.error,
+                                          blurRadius: 30,
+                                        ),
+                                      ],
+                                    ),
+                                    textAlign: TextAlign.center,
                                   ),
                                 ),
                               ],
                             ),
-                          ),
-                        ],
-                      ],
+
+                            const SizedBox(height: 32),
+
+                            // Enhanced stats card with staggered animation
+                            TweenAnimationBuilder<double>(
+                              duration: const Duration(milliseconds: 500),
+                              tween: Tween(begin: 0.0, end: 1.0),
+                              curve: Curves.elasticOut,
+                              builder: (context, statsValue, child) {
+                                return Transform.translate(
+                                  offset: Offset(0, 30 * (1 - statsValue)),
+                                  child: Opacity(
+                                    opacity: statsValue.clamp(0.0, 1.0),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(24),
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: [
+                                            theme.colorScheme.surface.withValues(alpha: 0.4),
+                                            theme.colorScheme.surface.withValues(alpha: 0.2),
+                                          ],
+                                        ),
+                                        borderRadius: BorderRadius.circular(24),
+                                        border: Border.all(
+                                          color: isNewHighScore
+                                              ? theme.colorScheme.tertiary.withValues(alpha: 0.5)
+                                              : theme.colorScheme.error.withValues(alpha: 0.3),
+                                          width: 2,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: isNewHighScore
+                                                ? theme.colorScheme.tertiary.withValues(alpha: 0.3)
+                                                : theme.colorScheme.error.withValues(alpha: 0.2),
+                                            blurRadius: 30,
+                                            spreadRadius: 5,
+                                          ),
+                                        ],
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          _buildEnhancedOverlayStat(
+                                            theme,
+                                            'SCORE',
+                                            _gameModel.score.toString(),
+                                            Icons.emoji_events,
+                                            isNewHighScore
+                                                ? theme.colorScheme.tertiary
+                                                : theme.colorScheme.primary,
+                                          ),
+                                          const SizedBox(height: 16),
+                                          _buildEnhancedOverlayStat(
+                                            theme,
+                                            'LINES',
+                                            _gameModel.linesCleared.toString(),
+                                            Icons.horizontal_rule,
+                                            theme.colorScheme.secondary,
+                                          ),
+                                          const SizedBox(height: 16),
+                                          _buildEnhancedOverlayStat(
+                                            theme,
+                                            'LEVEL',
+                                            _gameModel.level.toString(),
+                                            Icons.trending_up,
+                                            theme.colorScheme.primary,
+                                          ),
+                                          if (isNewHighScore) ...[
+                                            const SizedBox(height: 20),
+                                            TweenAnimationBuilder<double>(
+                                              duration: const Duration(milliseconds: 1000),
+                                              tween: Tween(begin: 0.9, end: 1.1),
+                                              curve: Curves.easeInOut,
+                                              builder: (context, badgeValue, child) {
+                                                return Transform.scale(
+                                                  scale: badgeValue,
+                                                  child: Container(
+                                                    padding: const EdgeInsets.symmetric(
+                                                      horizontal: 20,
+                                                      vertical: 10,
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      gradient: LinearGradient(
+                                                        colors: [
+                                                          theme.colorScheme.tertiary,
+                                                          theme.colorScheme.tertiary.withValues(alpha: 0.7),
+                                                        ],
+                                                      ),
+                                                      borderRadius: BorderRadius.circular(30),
+                                                      boxShadow: [
+                                                        BoxShadow(
+                                                          color: theme.colorScheme.tertiary.withValues(alpha: 0.6),
+                                                          blurRadius: 20 * badgeValue,
+                                                          spreadRadius: 5 * badgeValue,
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        Icon(
+                                                          Icons.stars_rounded,
+                                                          color: Colors.white,
+                                                          size: 24,
+                                                        ),
+                                                        const SizedBox(width: 8),
+                                                        Text(
+                                                          'NEW HIGH SCORE!',
+                                                          style: theme.textTheme.titleMedium?.copyWith(
+                                                            color: Colors.white,
+                                                            fontWeight: FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                              onEnd: () {
+                                                setState(() {});
+                                              },
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+
+                            const SizedBox(height: 32),
+
+                            // Animated action buttons
+                            TweenAnimationBuilder<double>(
+                              duration: const Duration(milliseconds: 600),
+                              tween: Tween(begin: 0.0, end: 1.0),
+                              curve: Curves.elasticOut,
+                              builder: (context, btnValue, child) {
+                                return Transform.translate(
+                                  offset: Offset(0, 40 * (1 - btnValue)),
+                                  child: Opacity(
+                                    opacity: btnValue.clamp(0.0, 1.0),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Container(
+                                            height: 60,
+                                            decoration: BoxDecoration(
+                                              borderRadius: BorderRadius.circular(16),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: theme.colorScheme.primary.withValues(alpha: 0.6),
+                                                  blurRadius: 25,
+                                                  spreadRadius: 3,
+                                                ),
+                                              ],
+                                            ),
+                                            child: GlassButton(
+                                              text: 'RETRY',
+                                              onPressed: () {
+                                                setState(() {
+                                                  _gameModel.restart();
+                                                  _combo = 0;
+                                                });
+                                              },
+                                              icon: Icons.refresh,
+                                              isPrimary: true,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: SizedBox(
+                                            height: 60,
+                                            child: GlassButton(
+                                              text: 'EXIT',
+                                              onPressed: () => Navigator.of(context).pop(),
+                                              icon: Icons.exit_to_app,
+                                              isPrimary: false,
+                                              isOutlined: true,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-
-                  const SizedBox(height: 24),
-
-                  // Buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: GlassButton(
-                          text: 'RETRY',
-                          onPressed: () {
-                            setState(() {
-                              _gameModel.restart();
-                              _combo = 0;
-                            });
-                          },
-                          icon: Icons.refresh,
-                          isPrimary: true,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: GlassButton(
-                          text: 'EXIT',
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: Icons.exit_to_app,
-                          isPrimary: false,
-                          isOutlined: true,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
-        ),
-      ),
+          ],
+        );
+      },
     );
   }
 
   Widget _buildPausedOverlay(ThemeData theme) {
-    return BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.85),
-        ),
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 400),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Animated icon
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [
-                          theme.colorScheme.primary,
-                          theme.colorScheme.secondary,
-                        ],
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: theme.colorScheme.primary.withValues(alpha: 0.5),
-                          blurRadius: 20,
-                          spreadRadius: 5,
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      Icons.pause,
-                      size: 48,
-                      color: Colors.white,
-                    ),
+    return TweenAnimationBuilder<double>(
+      duration: const Duration(milliseconds: 300),
+      tween: Tween(begin: 0.0, end: 1.0),
+      builder: (context, value, child) {
+        return Stack(
+          children: [
+            // Animated blur background - FULL SCREEN
+            Positioned.fill(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(
+                  sigmaX: 10 * value,
+                  sigmaY: 10 * value,
+                ),
+                child: Container(
+                  width: double.infinity,
+                  height: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.7 * value),
                   ),
-
-                  const SizedBox(height: 16),
-
-                  GradientText(
-                    text: 'PAUSED',
-                    style: theme.textTheme.headlineMedium,
-                    showGlow: true,
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Current stats
-                  GlassCard(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        _buildOverlayStat(theme, 'SCORE', _gameModel.score.toString(), Icons.emoji_events),
-                        const SizedBox(height: 12),
-                        _buildOverlayStat(theme, 'LEVEL', _gameModel.level.toString(), Icons.trending_up),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Resume button
-                  SizedBox(
-                    width: double.infinity,
-                    child: GlassButton(
-                      text: 'RESUME',
-                      onPressed: () {
-                        setState(() => _gameModel.togglePause());
-                      },
-                      icon: Icons.play_arrow,
-                      isPrimary: true,
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // Exit button
-                  SizedBox(
-                    width: double.infinity,
-                    child: GlassButton(
-                      text: 'EXIT',
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: Icons.exit_to_app,
-                      isPrimary: false,
-                      isOutlined: true,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
-        ),
-      ),
+
+            // Animated floating tetromino pieces in background
+            ...List.generate(8, (index) {
+              final offset = (index * 0.3) % 1.0;
+              return Positioned(
+                left: (50 + index * 80) % MediaQuery.of(context).size.width,
+                top: -100 + (MediaQuery.of(context).size.height * offset * value),
+                child: Opacity(
+                  opacity: 0.1 * value,
+                  child: Transform.rotate(
+                    angle: (index * 0.5) + (value * 0.2),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: [
+                          theme.colorScheme.primary,
+                          theme.colorScheme.secondary,
+                          theme.colorScheme.tertiary,
+                        ][index % 3],
+                        borderRadius: BorderRadius.circular(4),
+                        boxShadow: [
+                          BoxShadow(
+                            color: [
+                              theme.colorScheme.primary,
+                              theme.colorScheme.secondary,
+                              theme.colorScheme.tertiary,
+                            ][index % 3].withValues(alpha: 0.5),
+                            blurRadius: 10,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }),
+
+            // Main content with slide-in animation
+            Center(
+              child: Transform.scale(
+                scale: 0.8 + (0.2 * value),
+                child: Opacity(
+                  opacity: value,
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 400),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Pulsing animated icon
+                          TweenAnimationBuilder<double>(
+                            duration: const Duration(milliseconds: 1000),
+                            tween: Tween(begin: 0.95, end: 1.05),
+                            curve: Curves.easeInOut,
+                            builder: (context, pulseValue, child) {
+                              return Transform.scale(
+                                scale: pulseValue,
+                                child: Container(
+                                  padding: const EdgeInsets.all(20),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: RadialGradient(
+                                      colors: [
+                                        theme.colorScheme.primary,
+                                        theme.colorScheme.secondary,
+                                        theme.colorScheme.tertiary,
+                                      ],
+                                      stops: const [0.0, 0.6, 1.0],
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: theme.colorScheme.primary.withValues(alpha: 0.6),
+                                        blurRadius: 30 * pulseValue,
+                                        spreadRadius: 10 * pulseValue,
+                                      ),
+                                      BoxShadow(
+                                        color: theme.colorScheme.secondary.withValues(alpha: 0.4),
+                                        blurRadius: 50 * pulseValue,
+                                        spreadRadius: 15 * pulseValue,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    Icons.pause,
+                                    size: 56,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              );
+                            },
+                            onEnd: () {
+                              // Loop the animation
+                              setState(() {});
+                            },
+                          ),
+
+                          const SizedBox(height: 24),
+
+                          // Animated gradient text with shimmer effect
+                          ShaderMask(
+                            shaderCallback: (bounds) {
+                              return LinearGradient(
+                                colors: [
+                                  theme.colorScheme.primary,
+                                  theme.colorScheme.secondary,
+                                  theme.colorScheme.tertiary,
+                                  theme.colorScheme.primary,
+                                ],
+                                stops: const [0.0, 0.3, 0.6, 1.0],
+                                tileMode: TileMode.mirror,
+                              ).createShader(bounds);
+                            },
+                            child: Text(
+                              'PAUSED',
+                              style: theme.textTheme.headlineLarge?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 48,
+                                letterSpacing: 4,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+
+                          const SizedBox(height: 32),
+
+                          // Enhanced stats card with animation
+                          TweenAnimationBuilder<double>(
+                            duration: const Duration(milliseconds: 400),
+                            tween: Tween(begin: 0.0, end: 1.0),
+                            curve: Curves.elasticOut,
+                            builder: (context, cardValue, child) {
+                              return Transform.translate(
+                                offset: Offset(0, 20 * (1 - cardValue)),
+                                child: Opacity(
+                                  opacity: cardValue.clamp(0.0, 1.0),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(20),
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [
+                                          theme.colorScheme.surface.withValues(alpha: 0.3),
+                                          theme.colorScheme.surface.withValues(alpha: 0.1),
+                                        ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                                        width: 2,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: theme.colorScheme.primary.withValues(alpha: 0.2),
+                                          blurRadius: 20,
+                                          spreadRadius: 5,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        _buildEnhancedOverlayStat(
+                                          theme,
+                                          'SCORE',
+                                          _gameModel.score.toString(),
+                                          Icons.emoji_events,
+                                          theme.colorScheme.tertiary,
+                                        ),
+                                        const SizedBox(height: 16),
+                                        _buildEnhancedOverlayStat(
+                                          theme,
+                                          'LEVEL',
+                                          _gameModel.level.toString(),
+                                          Icons.trending_up,
+                                          theme.colorScheme.primary,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+
+                          const SizedBox(height: 32),
+
+                          // Animated buttons
+                          TweenAnimationBuilder<double>(
+                            duration: const Duration(milliseconds: 500),
+                            tween: Tween(begin: 0.0, end: 1.0),
+                            curve: Curves.elasticOut,
+                            builder: (context, btnValue, child) {
+                              return Transform.translate(
+                                offset: Offset(0, 30 * (1 - btnValue)),
+                                child: Opacity(
+                                  opacity: btnValue.clamp(0.0, 1.0),
+                                  child: Column(
+                                    children: [
+                                      // Resume button with glow
+                                      SizedBox(
+                                        width: double.infinity,
+                                        height: 56,
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(16),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                                                blurRadius: 20,
+                                                spreadRadius: 2,
+                                              ),
+                                            ],
+                                          ),
+                                          child: GlassButton(
+                                            text: 'RESUME',
+                                            onPressed: () {
+                                              setState(() => _gameModel.togglePause());
+                                            },
+                                            icon: Icons.play_arrow,
+                                            isPrimary: true,
+                                          ),
+                                        ),
+                                      ),
+
+                                      const SizedBox(height: 16),
+
+                                      // Exit button
+                                      SizedBox(
+                                        width: double.infinity,
+                                        height: 56,
+                                        child: GlassButton(
+                                          text: 'EXIT',
+                                          onPressed: () => Navigator.of(context).pop(),
+                                          icon: Icons.exit_to_app,
+                                          isPrimary: false,
+                                          isOutlined: true,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
-  Widget _buildOverlayStat(ThemeData theme, String label, String value, IconData icon) {
-    return Row(
-      children: [
-        Icon(
-          icon,
-          color: theme.colorScheme.primary,
-          size: 20,
+  Widget _buildEnhancedOverlayStat(
+    ThemeData theme,
+    String label,
+    String value,
+    IconData icon,
+    Color accentColor,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            accentColor.withValues(alpha: 0.1),
+            accentColor.withValues(alpha: 0.05),
+          ],
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            label,
-            style: theme.textTheme.titleSmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: accentColor.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: accentColor.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              icon,
+              color: accentColor,
+              size: 24,
             ),
           ),
-        ),
-        Text(
-          value,
-          style: theme.textTheme.titleLarge?.copyWith(
-            color: theme.colorScheme.primary,
-            fontWeight: FontWeight.bold,
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              label,
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
-        ),
-      ],
+          Text(
+            value,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: accentColor,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -778,9 +1393,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   children: [
                     _buildCompactStat(theme, 'SCORE', _gameModel.score.toString(), _scoreAnimation, true),
                     _buildVerticalDivider(theme),
-                    _buildCompactStat(theme, 'LINES', _gameModel.linesCleared.toString(), null, false),
+                    _buildCompactStat(theme, 'LVL', _gameModel.level.toString(), _levelAnimation, false),
                     _buildVerticalDivider(theme),
-                    _buildCompactStat(theme, 'LEVEL', _gameModel.level.toString(), _levelAnimation, false),
+                    _buildDifficultyBadge(theme),
                   ],
                 ),
               ),
@@ -878,21 +1493,24 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                     _buildVerticalDivider(theme),
                     _buildCompactStat(theme, 'LINES', _gameModel.linesCleared.toString(), null, false),
                     _buildVerticalDivider(theme),
-                    _buildCompactStat(theme, 'LEVEL', _gameModel.level.toString(), _levelAnimation, false),
+                    _buildCompactStat(theme, 'LVL', _gameModel.level.toString(), _levelAnimation, false),
+                    _buildVerticalDivider(theme),
+                    _buildDifficultyBadge(theme),
                   ],
                 ),
               ),
 
               const SizedBox(width: 16),
 
-              // Next/Hold previews (compact)
-              Row(
-                children: [
-                  _buildSmallPreview(theme, 'NEXT', _gameModel.nextPiece, theme.colorScheme.primary),
-                  const SizedBox(width: 8),
-                  _buildSmallPreview(theme, 'HOLD', _gameModel.heldPiece, theme.colorScheme.secondary),
-                ],
-              ),
+              // Next/Hold previews (compact) - only show if not hidden by difficulty
+              if (_gameModel.shouldShowNextPiece)
+                Row(
+                  children: [
+                    _buildSmallPreview(theme, 'NEXT', _gameModel.nextPiece, theme.colorScheme.primary),
+                    const SizedBox(width: 8),
+                    _buildSmallPreview(theme, 'HOLD', _gameModel.heldPiece, theme.colorScheme.secondary),
+                  ],
+                ),
 
               const SizedBox(width: 16),
 
@@ -1138,6 +1756,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                     return GameBoard(
                       gameModel: _gameModel,
                       blockSkin: blockSkin,
+                      onRowClearAnimationStart: () {
+                        // Trigger confetti when row clearing animation starts
+                        _confettiController.play();
+                      },
                     );
                   },
                 ),
@@ -1172,47 +1794,76 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Next piece
-                Text(
-                  'NEXT',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
+                // Next piece - only show if allowed by difficulty
+                if (_gameModel.shouldShowNextPiece) ...[
+                  Text(
+                    'NEXT',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  height: 50,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        theme.colorScheme.primary.withValues(alpha: 0.2),
-                        theme.colorScheme.primary.withValues(alpha: 0.05),
+                  const SizedBox(height: 4),
+                  Container(
+                    height: 50,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          theme.colorScheme.primary.withValues(alpha: 0.2),
+                          theme.colorScheme.primary.withValues(alpha: 0.05),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.4),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                          blurRadius: 6,
+                        ),
                       ],
                     ),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.4),
-                      width: 1.5,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.3),
-                        blurRadius: 6,
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: SizedBox(
-                      width: 45,
-                      height: 45,
-                      child: Center(
-                        child: PiecePreview(piece: _gameModel.nextPiece),
+                    child: Center(
+                      child: SizedBox(
+                        width: 45,
+                        height: 45,
+                        child: Center(
+                          child: PiecePreview(piece: _gameModel.nextPiece),
+                        ),
                       ),
                     ),
                   ),
-                ),
+                  const SizedBox(height: 10),
+                ] else ...[
+                  // Show "Hidden" indicator when preview is removed
+                  Container(
+                    height: 50,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          theme.colorScheme.error.withValues(alpha: 0.2),
+                          theme.colorScheme.error.withValues(alpha: 0.05),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: theme.colorScheme.error.withValues(alpha: 0.4),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Center(
+                      child: Icon(
+                        Icons.visibility_off,
+                        color: theme.colorScheme.error.withValues(alpha: 0.6),
+                        size: 24,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
 
                 const SizedBox(height: 10),
 
@@ -1495,6 +2146,62 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               blurRadius: 6,
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  // DIFFICULTY BADGE - Shows current difficulty tier
+  Widget _buildDifficultyBadge(ThemeData theme) {
+    final tier = _gameModel.currentDifficultyTier;
+    final config = _gameModel.difficultyConfig;
+
+    Color badgeColor;
+    switch (tier) {
+      case DifficultyTier.easy:
+        badgeColor = Colors.green;
+        break;
+      case DifficultyTier.medium:
+        badgeColor = Colors.blue;
+        break;
+      case DifficultyTier.hard:
+        badgeColor = Colors.orange;
+        break;
+      case DifficultyTier.expert:
+        badgeColor = Colors.red;
+        break;
+      case DifficultyTier.insane:
+        badgeColor = Colors.purple;
+        break;
+    }
+
+    return Flexible(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: badgeColor.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: badgeColor.withValues(alpha: 0.5),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: badgeColor.withValues(alpha: 0.3),
+              blurRadius: 4,
+            ),
+          ],
+        ),
+        child: Text(
+          config.displayName,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: badgeColor,
+            fontSize: 8,
+            fontWeight: FontWeight.bold,
+            height: 1.0,
+          ),
+          maxLines: 1,
+          textAlign: TextAlign.center,
         ),
       ),
     );

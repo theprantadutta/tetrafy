@@ -7,18 +7,53 @@ import '../models/point.dart';
 class GameBoard extends StatefulWidget {
   final GameModel gameModel;
   final BlockSkin blockSkin;
+  final VoidCallback? onRowClearAnimationStart;
 
   const GameBoard({
     super.key,
     required this.gameModel,
     this.blockSkin = BlockSkin.flat,
+    this.onRowClearAnimationStart,
   });
 
   @override
   State<GameBoard> createState() => _GameBoardState();
 }
 
-class _GameBoardState extends State<GameBoard> {
+class _GameBoardState extends State<GameBoard> with SingleTickerProviderStateMixin {
+  late AnimationController _clearAnimationController;
+  late Animation<double> _clearAnimation;
+  Set<int> _animatingRows = {};
+  bool _isAnimating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _clearAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+    _clearAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(parent: _clearAnimationController, curve: Curves.easeInOut),
+    )..addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        // Animation complete, now actually remove the rows
+        widget.gameModel.completeLineClear();
+        setState(() {
+          _animatingRows.clear();
+          _isAnimating = false;
+        });
+        _clearAnimationController.reset();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _clearAnimationController.dispose();
+    super.dispose();
+  }
+
   Point<int> _getGhostPosition() {
     Point<int> ghostPosition = widget.gameModel.currentPiece.position;
     while (widget.gameModel.isValidPosition(
@@ -28,8 +63,23 @@ class _GameBoardState extends State<GameBoard> {
     return ghostPosition;
   }
 
+  void _checkAndAnimateRowClearing() {
+    if (widget.gameModel.rowsBeingCleared.isNotEmpty && !_isAnimating) {
+      setState(() {
+        _animatingRows = widget.gameModel.rowsBeingCleared.toSet();
+        _isAnimating = true;
+      });
+      // Trigger confetti effect
+      widget.onRowClearAnimationStart?.call();
+      _clearAnimationController.forward();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Check if we need to start row clearing animation
+    _checkAndAnimateRowClearing();
+
     final ghostPosition = _getGhostPosition();
     final ghostPoints = widget.gameModel.getPiecePoints(
       widget.gameModel.currentPiece.type,
@@ -39,7 +89,10 @@ class _GameBoardState extends State<GameBoard> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        return GridView.builder(
+        return AnimatedBuilder(
+          animation: _clearAnimation,
+          builder: (context, child) {
+            return GridView.builder(
           physics: const NeverScrollableScrollPhysics(),
           padding: EdgeInsets.zero,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -68,6 +121,8 @@ class _GameBoardState extends State<GameBoard> {
         
         // Determine the color of the cell
         Color? color;
+        bool isGarbageBlock = false;
+
         if (isPiece) {
           // Use the color of the active piece
           color = widget.gameModel.currentPiece.color;
@@ -77,22 +132,79 @@ class _GameBoardState extends State<GameBoard> {
         } else {
           // Use the color from the grid (placed pieces or empty)
           color = widget.gameModel.grid[y][x];
+
+          // Check if this is a garbage block (gray colored block in a garbage row)
+          if (color != null && widget.gameModel.garbageRows.contains(y)) {
+            isGarbageBlock = true;
+          }
         }
-        
-            return AnimatedOpacity(
-              duration: const Duration(milliseconds: 100),
-              opacity: color == null && !isGhost ? 0 : 1,
-              child: _buildBlock(color, isGhost: isGhost && !isPiece),
-            );
-          },
+
+        // Check if this row is being cleared
+        final isRowClearing = _animatingRows.contains(y);
+        final animationValue = isRowClearing ? _clearAnimation.value : 1.0;
+
+        return Transform.scale(
+          scale: animationValue,
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 100),
+            opacity: isRowClearing
+                ? animationValue
+                : (color == null && !isGhost ? 0 : 1),
+            child: Container(
+              decoration: isRowClearing
+                  ? BoxDecoration(
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.white.withValues(alpha: 1.0 - animationValue),
+                          blurRadius: 20 * (1.0 - animationValue),
+                          spreadRadius: 5 * (1.0 - animationValue),
+                        ),
+                      ],
+                    )
+                  : null,
+              child: _buildBlock(color, isGhost: isGhost && !isPiece, isGarbage: isGarbageBlock),
+            ),
+          ),
         );
-      },
-    );
+          }, // itemBuilder
+        ); // GridView.builder
+          }, // AnimatedBuilder builder
+        ); // AnimatedBuilder
+      }, // LayoutBuilder builder
+    ); // LayoutBuilder
   }
 
-  Widget _buildBlock(Color? color, {bool isGhost = false}) {
+  Widget _buildBlock(Color? color, {bool isGhost = false, bool isGarbage = false}) {
     if (color == null && !isGhost) {
       return const SizedBox(); // Return an empty widget for empty cells
+    }
+
+    // Render garbage blocks differently
+    if (isGarbage) {
+      return Container(
+        margin: const EdgeInsets.all(1.2),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(2),
+          border: Border.all(
+            color: Colors.red.withValues(alpha: 0.6),
+            width: 2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.red.withValues(alpha: 0.4),
+              blurRadius: 4,
+              spreadRadius: 1,
+            ),
+          ],
+        ),
+        // Add X pattern to indicate garbage
+        child: CustomPaint(
+          painter: GarbageBlockPainter(
+            color: Colors.red.withValues(alpha: 0.6),
+          ),
+        ),
+      );
     }
 
     if (isGhost) {
@@ -293,4 +405,34 @@ class _GameBoardState extends State<GameBoard> {
         );
     }
   }
+}
+
+// Custom painter for garbage block X pattern
+class GarbageBlockPainter extends CustomPainter {
+  final Color color;
+
+  GarbageBlockPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+
+    // Draw X pattern
+    canvas.drawLine(
+      Offset(0, 0),
+      Offset(size.width, size.height),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(size.width, 0),
+      Offset(0, size.height),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

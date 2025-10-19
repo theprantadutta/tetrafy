@@ -190,14 +190,20 @@ class ThemeSelectionScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Row(
                     children: [
-                      Text(
-                        displayName,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: themeData.colorScheme.onSurface,
-                          fontWeight: FontWeight.bold,
+                      Flexible(
+                        child: Text(
+                          displayName,
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            color: themeData.colorScheme.onSurface,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       if (isSelected) ...[
@@ -205,16 +211,17 @@ class ThemeSelectionScreen extends StatelessWidget {
                         Icon(
                           Icons.check_circle,
                           color: themeData.colorScheme.primary,
-                          size: 20,
+                          size: 18,
                         ),
                       ],
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Text(
                     _getThemeDescription(themeName),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: themeData.colorScheme.onSurface.withValues(alpha: 0.7),
+                      fontSize: 11,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
